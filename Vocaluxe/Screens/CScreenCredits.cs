@@ -323,11 +323,6 @@ namespace Vocaluxe.Screens
             _ScrollTimer.Start();
             _previousAnimationElapsedMilliseconds = 0;
             _BackgroundVideoTime = 0f;
-
-            foreach (var element in _ScrollingElements)
-            {
-                element.Visible = true;
-            }
         }
 
         public override void Draw()
