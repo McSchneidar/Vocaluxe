@@ -122,22 +122,22 @@ namespace Vocaluxe.Screens
             }
 
             // Intro
-            AddText("14 Years Vocaluxe!", bigHeadlineSize, EStyle.Bold, 0);
+            AddText("Bringing people together to sing since 2011", bigHeadlineSize, EStyle.Bold, 0);
             scrollY += paragraphSpacing;
-            AddText("A heartfelt thank you to all the people who have contributed to making Vocaluxe a reality over the past 14 years.", textSize, EStyle.Normal, 0);
+            AddText("A heartfelt thank you to all the people who have contributed to making Vocaluxe a reality.", textSize, EStyle.Normal, 0);
             AddText("Your dedication, time, and open-source spirit have been incredible. Keep contributing or re-join and make the world sing!", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing * 3;
-            AddText("VOCALUXE Team (2011-today)", bigHeadlineSize, EStyle.Bold, 0);
+            AddText("VOCALUXE Team (2011-present)", bigHeadlineSize, EStyle.Bold, 0);
             scrollY += paragraphSpacing * 2;
 
             // Production
             AddText("PRODUCTION", headlineSize, EStyle.Bold, 0);
             scrollY += paragraphSpacing;
             AddText("Project Leader", boldSize, EStyle.Bold, 0);
-            AddText("Florian Ostertag (2013-today)", textSize, EStyle.Normal, 0);
+            AddText("Florian Ostertag (2013-present)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing;
             AddText("Project Management", boldSize, EStyle.Bold, 0);
-            AddText("Marwin (2023-today)", textSize, EStyle.Normal, 0);
+            AddText("Marwin (2023-2025)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing * 3;
 
             // Design
@@ -148,7 +148,7 @@ namespace Vocaluxe.Screens
             scrollY += paragraphSpacing;
             AddText("Party Mode Design", boldSize, EStyle.Bold, 0);
             AddText("Alexander Eckhart (2011-2015)", textSize, EStyle.Normal, 0);
-            AddText("Florian Ostertag (2013-today)", textSize, EStyle.Normal, 0);
+            AddText("Florian Ostertag (2013-present)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing * 3;
 
             // Programming/Engineering
@@ -158,26 +158,30 @@ namespace Vocaluxe.Screens
             AddText("Alexander Eckhart (2011-2015)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing;
             AddText("Software Engineer", boldSize, EStyle.Bold, 0);
-            AddText("Florian Ostertag (2013-today)", textSize, EStyle.Normal, 0);
+            AddText("Florian Ostertag (2013-present)", textSize, EStyle.Normal, 0);
             AddText("LukeIam (2013-2019)", textSize, EStyle.Normal, 0);
             AddText("Alexander Eckhart (2011-2015)", textSize, EStyle.Normal, 0);
             AddText("Alexander Grund (2013-2015)", textSize, EStyle.Normal, 0);
             AddText("Darkice", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing;
             AddText("Programmer", boldSize, EStyle.Bold, 0);
-            AddText("McSchneidar (2026-today)", textSize, EStyle.Normal, 0);
-            AddText("Metin Celik (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Jeff Dolan (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Kacper Majorkowski (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Franz Schuster (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Dirk Heinke (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Florian Schulze (2025-today)", textSize, EStyle.Normal, 0);
-            AddText("Edi316 (2025-today)", textSize, EStyle.Normal, 0);
+            AddText("Niketin (2026-present)", textSize, EStyle.Normal, 0);
+            AddText("Michael Walter (2026-present)", textSize, EStyle.Normal, 0);
+            AddText("friedPotat0 (2026-present)", textSize, EStyle.Normal, 0);
+            AddText("Quentin Bray (2026-present)", textSize, EStyle.Normal, 0);
+            AddText("McSchneidar (2026-present)", textSize, EStyle.Normal, 0);
+            AddText("Metin Celik (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Jeff Dolan (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Kacper Majorkowski (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Franz Schuster (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Dirk Heinke (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Florian Schulze (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Edi316 (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Rap-Voca (2024)", textSize, EStyle.Normal, 0);
             AddText("GRaff844 (2024)", textSize, EStyle.Normal, 0);
             AddText("Stefan1200 (2020-2022)", textSize, EStyle.Normal, 0);
             AddText("GaryCXJk (2020-2021)", textSize, EStyle.Normal, 0);
-            AddText("Jiiniasu (2016-today)", textSize, EStyle.Normal, 0);
+            AddText("Jiiniasu (2016-present)", textSize, EStyle.Normal, 0);
             AddText("Stephan Sundermann (2012-2014)", textSize, EStyle.Normal, 0);
             AddText("Damien Laguerre (2024)", textSize, EStyle.Normal, 0);
             AddText("Markus Bohning (2012)", textSize, EStyle.Normal, 0);
@@ -189,11 +193,11 @@ namespace Vocaluxe.Screens
             AddText("ART/GRAPHICS", headlineSize, EStyle.Bold, 0);
             scrollY += paragraphSpacing;
             AddText("UI Artist/Graphics", boldSize, EStyle.Bold, 0);
-            AddText("Marwin (2023-today)", textSize, EStyle.Normal, 0);
+            AddText("Marwin (2023-2025)", textSize, EStyle.Normal, 0);
             AddText("Jiiniasu (2016-2020)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing;
             AddText("Sound/Audio/Music Design", boldSize, EStyle.Bold, 0);
-            AddText("Marwin (2023-today)", textSize, EStyle.Normal, 0);
+            AddText("Marwin (2023-2025)", textSize, EStyle.Normal, 0);
             scrollY += paragraphSpacing;
             AddText("Audio Producer", boldSize, EStyle.Bold, 0);
             AddText("Ivymusic", textSize, EStyle.Normal, 0);
@@ -207,7 +211,6 @@ namespace Vocaluxe.Screens
 
             // Website
             AddText("www.vocaluxe.org", headlineSize, EStyle.Bold, 0);
-            AddText("www.open-music-games.org", headlineSize, EStyle.Bold, 0);
         }
 
         public override void ReloadTheme(string xmlPath) { }
