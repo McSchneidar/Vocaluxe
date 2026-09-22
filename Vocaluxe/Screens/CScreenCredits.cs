@@ -173,10 +173,10 @@ namespace Vocaluxe.Screens
             AddText("Metin Celik (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Jeff Dolan (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Kacper Majorkowski (2025-present)", textSize, EStyle.Normal, 0);
-            AddText("Franz Schuster (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Dirk Heinke (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Florian Schulze (2025-present)", textSize, EStyle.Normal, 0);
             AddText("Edi316 (2025-present)", textSize, EStyle.Normal, 0);
+            AddText("Franz Schuster (2025)", textSize, EStyle.Normal, 0);
             AddText("Rap-Voca (2024)", textSize, EStyle.Normal, 0);
             AddText("GRaff844 (2024)", textSize, EStyle.Normal, 0);
             AddText("Stefan1200 (2020-2022)", textSize, EStyle.Normal, 0);
@@ -207,7 +207,7 @@ namespace Vocaluxe.Screens
             AddText("TRANSLATION", headlineSize, EStyle.Bold, 0);
             scrollY += paragraphSpacing;
             AddText("Thanks to everyone translating Vocaluxe into different languages.", textSize, EStyle.Normal, 0);
-            scrollY += paragraphSpacing * 4;
+            scrollY += paragraphSpacing * 3;
 
             // Website
             AddText("www.vocaluxe.org", headlineSize, EStyle.Bold, 0);
