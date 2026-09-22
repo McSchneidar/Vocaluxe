@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Pioneer Software Consulting")]
 [assembly: AssemblyProduct("C#-SQLite3 shell")]
-[assembly: AssemblyCopyright("Copyright ©  2009")]
+[assembly: AssemblyCopyright("Copyright ©  2027")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
