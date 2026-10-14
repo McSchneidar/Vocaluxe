@@ -19,9 +19,6 @@ using System.Collections.ObjectModel;
 using Vocaluxe.Lib.Sound.Record;
 using Vocaluxe.Lib.Sound.Record.PortAudio;
 using VocaluxeLib;
-#if WIN
-using Vocaluxe.Lib.Sound.Record.DirectSound;
-#endif
 
 namespace Vocaluxe.Base
 {
@@ -36,19 +33,8 @@ namespace Vocaluxe.Base
                 return false;
             }
 
-            switch (CConfig.Config.Sound.RecordLib)
-            {
-#if WIN
-                case ERecordLib.DirectSound:
-                    _Record = new CDirectSoundRecord();
-                    break;
-#endif
-
-                // case ERecordLib.PortAudio:
-                default:
-                    _Record = new CPortAudioRecord();
-                    break;
-            }
+            // PortAudio is the only record lib (ERecordLib.PortAudio)
+            _Record = new CPortAudioRecord();
 
             return _Record.Init();
         }

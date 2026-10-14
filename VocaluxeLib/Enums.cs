@@ -189,9 +189,6 @@ namespace VocaluxeLib
 
     public enum ERecordLib
     {
-#if WIN
-        DirectSound,
-#endif
         PortAudio
     }
 
