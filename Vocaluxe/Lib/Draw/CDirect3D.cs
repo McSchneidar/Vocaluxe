@@ -41,7 +41,6 @@ namespace Vocaluxe.Lib.Draw
 
         public CRenderFormHook()
         {
-            //Direct3D draws the whole client area, so let Windows not paint the background
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.Opaque, true);
         }
 
@@ -49,7 +48,6 @@ namespace Vocaluxe.Lib.Draw
 
         protected override void WndProc(ref Message m)
         {
-            //Avoid the beep when pressing Alt+key combinations without a menu
             if (m.Msg == _WmMenuChar)
             {
                 m.Result = new IntPtr(_MncClose << 16);
@@ -93,7 +91,6 @@ namespace Vocaluxe.Lib.Draw
 
     class CDirect3D : CDrawBaseWindows<CD3DTexture>, IDraw
     {
-        //HRESULTs of IDirect3DDevice9::Present and TestCooperativeLevel
         private const int _D3DErrDeviceLost = unchecked((int)0x88760868);
         private const int _D3DErrDeviceNotReset = unchecked((int)0x88760869);
 
@@ -147,7 +144,6 @@ namespace Vocaluxe.Lib.Draw
             const int adapter = 0;
             var displayFormat = _D3D.GetAdapterDisplayMode(adapter).Format;
 
-            //A depth buffer is needed so elements with a higher Z are hidden behind elements with a lower Z regardless of the drawing order (same as in OpenGL)
             var depthFormat = _D3D.CheckDepthStencilMatch(adapter, DeviceType.Hardware, displayFormat, displayFormat, Format.D24X8).Success ? Format.D24X8 : Format.D16;
 
             _PresentParameters = new PresentParameters
@@ -415,9 +411,6 @@ namespace Vocaluxe.Lib.Draw
             Application.DoEvents();
         }
 
-        /// <summary>
-        ///     Returns the HRESULT of IDirect3DDevice9::TestCooperativeLevel, 0 if the device is usable
-        /// </summary>
         private int _GetCooperativeLevel()
         {
             try
@@ -461,14 +454,9 @@ namespace Vocaluxe.Lib.Draw
                 CSettings.ZNear, CSettings.ZFar);
 
             _Device.SetTransform(TransformState.Projection, projection);
-            //World matrix (D3DTS_WORLD)
             _Device.SetTransform(0, translate);
         }
 
-        /// <summary>
-        ///     Left-handed orthographic projection, equal to D3DXMatrixOrthoOffCenterLH
-        ///     (System.Numerics only provides the right-handed version)
-        /// </summary>
         private static Matrix4x4 _CreateOrthoOffCenterLH(float left, float right, float bottom, float top, float zNear, float zFar)
         {
             return new Matrix4x4(
@@ -588,7 +576,7 @@ namespace Vocaluxe.Lib.Draw
 
                 for (var i = 0; i < _Vertices.Count; i += 4)
                 {
-                    //Apply rotation (world matrix)
+                    //Apply rotation
                     _Device.SetTransform(0, _VerticesRotationMatrices.Dequeue());
 
                     //Apply texture
@@ -625,10 +613,6 @@ namespace Vocaluxe.Lib.Draw
             }
         }
 
-        /// <summary>
-        ///     Reads the current backbuffer into memory as 32 bit BGRA pixels with opaque alpha
-        /// </summary>
-        /// <returns>The pixels row by row (stride = width) or null on failure</returns>
         private int[] _ReadBackBuffer(out int width, out int height)
         {
             width = 0;
@@ -648,7 +632,6 @@ namespace Vocaluxe.Lib.Draw
                     height = desc.Height;
                     var rect = new Rect(0, 0, width, height);
 
-                    //GetRenderTargetData does not support multisampled surfaces, so resolve into a plain render target first
                     using (var renderTarget = _Device.CreateRenderTarget(width, height, desc.Format, MultisampleType.None, 0, false))
                     using (var sysMemSurface = _Device.CreateOffscreenPlainSurface(width, height, desc.Format, Pool.SystemMemory))
                     {
@@ -669,7 +652,6 @@ namespace Vocaluxe.Lib.Draw
                             sysMemSurface.UnlockRect();
                         }
 
-                        //The X8 in X8R8G8B8 is undefined, make it opaque
                         for (var i = 0; i < pixels.Length; i++)
                         {
                             pixels[i] |= unchecked((int)0xFF000000);
@@ -686,9 +668,6 @@ namespace Vocaluxe.Lib.Draw
             }
         }
 
-        /// <summary>
-        ///     Copies the top left area of the backbuffer with the size of the viewport into the texture
-        /// </summary>
         private void _CopyBackBufferToTexture(CD3DTexture texture)
         {
             int bufferWidth, bufferHeight;

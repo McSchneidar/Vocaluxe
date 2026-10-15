@@ -33,7 +33,6 @@ namespace Vocaluxe.Base
                 return false;
             }
 
-            // PortAudio is the only record lib (ERecordLib.PortAudio)
             _Record = new CPortAudioRecord();
 
             return _Record.Init();
