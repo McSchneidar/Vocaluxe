@@ -71,7 +71,7 @@ namespace Vocaluxe.Lib.Draw
             var usage = noMips ? Usage.None : Usage.AutoGenerateMipMap;
             var levels = noMips ? 1 : 0;
 
-            D3DTexture = device?.CreateTexture(texWidth, texHeight, levels, usage, Format.A8R8G8B8, Pool.Managed);
+            D3DTexture = device?.CreateTexture((uint)texWidth, (uint)texHeight, (uint)levels, usage, Format.A8R8G8B8, Pool.Managed);
         }
 
         public override bool IsLoaded
@@ -155,8 +155,8 @@ namespace Vocaluxe.Lib.Draw
             {
                 Windowed = true,
                 SwapEffect = SwapEffect.Discard,
-                BackBufferHeight = CConfig.Config.Graphics.ScreenH,
-                BackBufferWidth = CConfig.Config.Graphics.ScreenW * CConfig.Config.Graphics.NumScreens,
+                BackBufferHeight = (uint)CConfig.Config.Graphics.ScreenH,
+                BackBufferWidth = (uint)(CConfig.Config.Graphics.ScreenW * CConfig.Config.Graphics.NumScreens),
                 BackBufferFormat = displayFormat,
                 EnableAutoDepthStencil = true,
                 AutoDepthStencilFormat = depthFormat,
@@ -257,8 +257,8 @@ namespace Vocaluxe.Lib.Draw
             }
 
             //Apply the new sizes to the PresentParameters
-            _PresentParameters.BackBufferWidth = _Form.ClientSize.Width;
-            _PresentParameters.BackBufferHeight = _Form.ClientSize.Height;
+            _PresentParameters.BackBufferWidth = (uint)_Form.ClientSize.Width;
+            _PresentParameters.BackBufferHeight = (uint)_Form.ClientSize.Height;
             if (_Run)
             {
                 _ClearScreen();
@@ -321,10 +321,10 @@ namespace Vocaluxe.Lib.Draw
             _AdjustNewBorders();
 
             var vertexSize = Marshal.SizeOf(typeof(STexturedColoredVertex));
-            _VertexBuffer = _Device.CreateVertexBuffer(CSettings.VertexBufferElements * 4 * vertexSize, Usage.WriteOnly | Usage.Dynamic,
+            _VertexBuffer = _Device.CreateVertexBuffer((uint)(CSettings.VertexBufferElements * 4 * vertexSize), Usage.WriteOnly | Usage.Dynamic,
                 VertexFormat.Position | VertexFormat.Texture1 | VertexFormat.Diffuse, Pool.Default);
 
-            _Device.SetStreamSource(0, _VertexBuffer, 0, vertexSize);
+            _Device.SetStreamSource(0, _VertexBuffer, 0, (uint)vertexSize);
             _Device.VertexDeclaration = STexturedColoredVertex.GetDeclaration(_Device);
 
             _Device.SetRenderState(RenderState.CullMode, (int)Cull.None);
@@ -582,7 +582,7 @@ namespace Vocaluxe.Lib.Draw
                 {
                     //The vertex buffer locks are slow actions, its better to lock once per frame and write all vertices to the buffer at once
                     var vertexData = MemoryMarshal.AsBytes(_Vertices.ToArray().AsSpan());
-                    var bufferData = _VertexBuffer.Lock<byte>(0, vertexData.Length, LockFlags.Discard);
+                    var bufferData = _VertexBuffer.Lock<byte>(0, (uint)vertexData.Length, LockFlags.Discard);
                     vertexData.CopyTo(bufferData);
                     _VertexBuffer.Unlock();
 
@@ -641,12 +641,12 @@ namespace Vocaluxe.Lib.Draw
                         return null;
                     }
 
-                    width = desc.Width;
-                    height = desc.Height;
+                    width = (int)desc.Width;
+                    height = (int)desc.Height;
                     var rect = new Rect(0, 0, width, height);
 
-                    using (var renderTarget = _Device.CreateRenderTarget(width, height, desc.Format, MultisampleType.None, 0, false))
-                    using (var sysMemSurface = _Device.CreateOffscreenPlainSurface(width, height, desc.Format, Pool.SystemMemory))
+                    using (var renderTarget = _Device.CreateRenderTarget((uint)width, (uint)height, desc.Format, MultisampleType.None, 0, false))
+                    using (var sysMemSurface = _Device.CreateOffscreenPlainSurface((uint)width, (uint)height, desc.Format, Pool.SystemMemory))
                     {
                         _Device.StretchRect(backBuffer, rect, renderTarget, rect, TextureFilter.None);
                         _Device.GetRenderTargetData(renderTarget, sysMemSurface);

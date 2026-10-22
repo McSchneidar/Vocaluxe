@@ -21,14 +21,13 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
-using OpenTK;
-using OpenTK.Graphics;
+using OpenTK.GLControl;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Windowing.Common;
 using Vocaluxe.Base;
 using VocaluxeLib;
 using VocaluxeLib.Draw;
-using BlendingFactorDest = OpenTK.Graphics.OpenGL.BlendingFactorDest;
-using BlendingFactorSrc = OpenTK.Graphics.OpenGL.BlendingFactorSrc;
+using BlendingFactor = OpenTK.Graphics.OpenGL.BlendingFactor;
 using ClearBufferMask = OpenTK.Graphics.OpenGL.ClearBufferMask;
 using DepthFunction = OpenTK.Graphics.OpenGL.DepthFunction;
 using EnableCap = OpenTK.Graphics.OpenGL.EnableCap;
@@ -76,8 +75,8 @@ namespace Vocaluxe.Lib.Draw
 
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, texWidth, texHeight, 0, PixelFormat.Bgra, PixelType.UnsignedByte, IntPtr.Zero);
 
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)OpenTK.Graphics.TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)OpenTK.Graphics.TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
 
@@ -117,35 +116,28 @@ namespace Vocaluxe.Lib.Draw
             //Check AA Mode
             CConfig.Config.Graphics.AAMode = (EAntiAliasingModes)_CheckAntiAliasingMode((int)CConfig.Config.Graphics.AAMode);
 
-            var ok = false;
-            try
+            var settings = new GLControlSettings
             {
-#if WIN
-                var gm = new GraphicsMode(32, 24, 0, (int)CConfig.Config.Graphics.AAMode);
-#else
-                var gm = new GraphicsMode(24, 24, 0, (int)CConfig.Config.Graphics.AAMode);
-#endif
-                _Control = new GLControl(gm, 2, 1, GraphicsContextFlags.Default);
-                if (_Control.GraphicsMode != null)
-                {
-                    ok = true;
-                }
-            }
-            catch (Exception)
-            {
-                ok = false;
-            }
-
-            if (!ok)
-            {
-                _Control = new GLControl();
-            }
-
-            _Control.MakeCurrent();
-            _Control.VSync = CConfig.Config.Graphics.VSync == EOffOn.TR_CONFIG_ON;
+                API = ContextAPI.OpenGL,
+                APIVersion = new Version(2, 1),
+                Profile = ContextProfile.Any,
+                Flags = ContextFlags.Default,
+                NumberOfSamples = (int)CConfig.Config.Graphics.AAMode,
+                DepthBits = 24,
+                StencilBits = 0
+            };
+            _Control = new GLControl(settings);
 
             _Form.Controls.Add(_Control);
             _Control.ClientSize = _Form.ClientSize;
+            _Control.CreateControl();
+            if (!_Control.IsHandleCreated)
+            {
+                _Control.Handle.ToInt64();
+            }
+
+            _Control.MakeCurrent();
+            _Control.Context.SwapInterval = CConfig.Config.Graphics.VSync == EOffOn.TR_CONFIG_ON ? 1 : 0;
 
             _Control.KeyDown += _OnKeyDown;
             _Control.PreviewKeyDown += _OnPreviewKeyDown;
@@ -164,46 +156,18 @@ namespace Vocaluxe.Lib.Draw
 
         private static int _CheckAntiAliasingMode(int setValue)
         {
-            var samples = 0;
-
-            if (setValue > 32)
-            {
-                setValue = 32;
-            }
-
-            while (samples <= setValue)
-            {
-                GraphicsMode mode;
-                try
-                {
-                    mode = new GraphicsMode(16, 0, 0, samples);
-                }
-                catch (Exception)
-                {
-                    break;
-                }
-
-                if (mode.Samples != samples)
-                {
-                    break;
-                }
-
-                if (samples == 0)
-                {
-                    samples = 2;
-                }
-                else
-                {
-                    samples *= 2;
-                }
-            }
-
-            if (samples == 2)
+            if (setValue < 2)
             {
                 return 0;
             }
 
-            return samples / 2;
+            var samples = 2;
+            while (samples * 2 <= setValue && samples < 32)
+            {
+                samples *= 2;
+            }
+
+            return samples;
         }
 
         /*
@@ -265,7 +229,7 @@ namespace Vocaluxe.Lib.Draw
             // Init Texturing
             GL.Enable(EnableCap.Texture2D);
 
-            GL.BlendFunc(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
 
             GL.DepthRange(CSettings.ZFar, CSettings.ZNear);

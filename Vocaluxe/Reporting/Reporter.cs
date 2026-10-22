@@ -251,7 +251,7 @@ namespace Vocaluxe.Reporting
             _UploadFinished(issueUrl);
 
             // Start the browser with the issue template url
-            System.Diagnostics.Process.Start(issueUrl);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(issueUrl) { UseShellExecute = true });
         }
 
         /// <summary>

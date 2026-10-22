@@ -1,0 +1,52 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Configurations>DebugWin;ReleaseWin;DebugLinux;ReleaseLinux;InstallerWin</Configurations>
+    <Configuration Condition=" '$(Configuration)' == '' ">DebugWin</Configuration>
+    <Prefer32Bit>false</Prefer32Bit>
+    <WarningLevel>4</WarningLevel>
+    <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)CheckingRules.ruleset</CodeAnalysisRuleSet>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);CA1416;SYSLIB0014;WFO1000;WFDEV001;WFDEV005</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'DebugWin' ">
+    <DefineConstants>$(DefineConstants);TRACE;DEBUG;WIN</DefineConstants>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'ReleaseWin' ">
+    <DefineConstants>$(DefineConstants);WIN</DefineConstants>
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'InstallerWin' ">
+    <DefineConstants>$(DefineConstants);WIN;INSTALLER</DefineConstants>
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'DebugLinux' ">
+    <DefineConstants>$(DefineConstants);TRACE;DEBUG;LINUX</DefineConstants>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>false</Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)' == 'ReleaseLinux' ">
+    <DefineConstants>$(DefineConstants);LINUX</DefineConstants>
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsWindowsConfig Condition=" '$(Configuration)' == 'DebugWin' Or '$(Configuration)' == 'ReleaseWin' Or '$(Configuration)' == 'InstallerWin' ">true</IsWindowsConfig>
+  </PropertyGroup>
+</Project>

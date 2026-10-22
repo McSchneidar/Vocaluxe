@@ -139,7 +139,7 @@ namespace Vocaluxe.Base
 
         public struct SConfigSound
         {
-            [DefaultValue(EPlaybackLib.GstreamerSharp)]
+            [DefaultValue(EPlaybackLib.PortAudio)]
             public EPlaybackLib PlayBackLib;
             [DefaultValue(ERecordLib.PortAudio)]
             public ERecordLib RecordLib;
@@ -218,7 +218,7 @@ namespace Vocaluxe.Base
             public EOffOn VideosInSongs;
             [DefaultValue(EOffOn.TR_CONFIG_OFF)]
             public EOffOn VideosToBackground;
-            [DefaultValue(EWebcamLib.AForgeNet)]
+            [DefaultValue(EWebcamLib.FlashCap)]
             public EWebcamLib WebcamLib;
             public SWebcamConfig? WebcamConfig;
         }

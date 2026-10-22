@@ -19,19 +19,24 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
-using AForge.Video;
-using AForge.Video.DirectShow;
+using FlashCap;
 using Vocaluxe.Base;
 using VocaluxeLib.Draw;
+using VocaluxeLib.Log;
 
 namespace Vocaluxe.Lib.Webcam
 {
-    class CAForgeNet : IWebcam
+    class CFlashCap : IWebcam
     {
         private readonly List<SWebcamDevice> _Devices = new List<SWebcamDevice>();
+        private readonly Dictionary<string, CaptureDeviceDescriptor> _Descriptors = new Dictionary<string, CaptureDeviceDescriptor>();
         private bool _Paused;
-        private VideoCaptureDevice _Webcam;
+        private CaptureDeviceDescriptor _Descriptor;
+        private VideoCharacteristics _Characteristics;
+        private CaptureDevice _Webcam;
         private SWebcamConfig _Config;
         private byte[] _Data;
         private static readonly object _MutexData = new object();
@@ -41,34 +46,42 @@ namespace Vocaluxe.Lib.Webcam
 
         public bool Init()
         {
-            var webcams = new FilterInfoCollection(FilterCategory.VideoInputDevice);
-            foreach (FilterInfo info in webcams)
+            try
             {
-                var tmpdev = new VideoCaptureDevice(info.MonikerString);
-                if (tmpdev.VideoCapabilities.Length == 0)
+                var devices = new CaptureDevices();
+                foreach (var descriptor in devices.EnumerateDescriptors())
                 {
-                    continue;
-                }
-
-                var device = new SWebcamDevice
-                {
-                    Name = info.Name,
-                    MonikerString = info.MonikerString,
-                    Capabilities = new List<SCapabilities>(tmpdev.VideoCapabilities.Length)
-                };
-
-                foreach (var capabilities in tmpdev.VideoCapabilities)
-                {
-                    var item = new SCapabilities
+                    var characteristics = _GetUsableCharacteristics(descriptor);
+                    if (characteristics.Length == 0)
                     {
-                        Framerate = capabilities.AverageFrameRate,
-                        Height = capabilities.FrameSize.Height,
-                        Width = capabilities.FrameSize.Width
-                    };
-                    device.Capabilities.Add(item);
-                }
+                        continue;
+                    }
 
-                _Devices.Add(device);
+                    var moniker = descriptor.Identity?.ToString() ?? descriptor.Name;
+                    if (_Descriptors.ContainsKey(moniker))
+                    {
+                        continue;
+                    }
+
+                    var device = new SWebcamDevice
+                    {
+                        Name = descriptor.Name,
+                        MonikerString = moniker,
+                        Capabilities = characteristics.Select(c => new SCapabilities
+                        {
+                            Framerate = _GetFramerate(c),
+                            Height = c.Height,
+                            Width = c.Width
+                        }).ToList()
+                    };
+
+                    _Descriptors.Add(moniker, descriptor);
+                    _Devices.Add(device);
+                }
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "Error enumerating webcams");
             }
 
             return true;
@@ -78,26 +91,38 @@ namespace Vocaluxe.Lib.Webcam
         {
             DeSelect();
             _Devices.Clear();
+            _Descriptors.Clear();
         }
 
         public void DeSelect()
         {
-            if (_Webcam == null)
+            if (_Descriptor == null)
             {
                 return;
             }
 
-            _Webcam.Stop();
-            _Webcam.NewFrame -= _OnFrame;
-            _IsCapturing = false;
+            _CloseDevice();
             lock (_MutexData)
             {
+                _IsCapturing = false;
                 _Data = null;
-                _Webcam = null;
+                _Descriptor = null;
+                _Characteristics = null;
             }
         }
 
         #region ConfigSelection
+        private static VideoCharacteristics[] _GetUsableCharacteristics(CaptureDeviceDescriptor descriptor)
+        {
+            return descriptor.Characteristics.Where(c => c.PixelFormat != PixelFormats.Unknown).ToArray();
+        }
+
+        private static int _GetFramerate(VideoCharacteristics characteristics)
+        {
+            var fps = characteristics.FramesPerSecond;
+            return fps.Denominator == 0 ? 0 : (int)Math.Round((double)fps.Numerator / fps.Denominator);
+        }
+
         private static float _GetScore(int value, int valueRequested)
         {
             if (valueRequested <= 0)
@@ -108,7 +133,7 @@ namespace Vocaluxe.Lib.Webcam
             return 1.0f - (float)Math.Abs(value - valueRequested) / Math.Max(value, valueRequested);
         }
 
-        private static VideoCapabilities _SelectWebcamConfig(VideoCapabilities[] capabilities, SWebcamConfig config)
+        private static VideoCharacteristics _SelectWebcamConfig(VideoCharacteristics[] capabilities, SWebcamConfig config)
         {
             var configTaken = 0;
             if (config.Framerate != 0 && config.Height != 0 && config.Width != 0)
@@ -116,9 +141,9 @@ namespace Vocaluxe.Lib.Webcam
                 float bestMatchScore = 0;
                 for (var i = 0; i < capabilities.Length; i++)
                 {
-                    var score = _GetScore(capabilities[i].AverageFrameRate, config.Framerate);
-                    score += _GetScore(capabilities[i].FrameSize.Height, config.Height);
-                    score += _GetScore(capabilities[i].FrameSize.Width, config.Width);
+                    var score = _GetScore(_GetFramerate(capabilities[i]), config.Framerate);
+                    score += _GetScore(capabilities[i].Height, config.Height);
+                    score += _GetScore(capabilities[i].Width, config.Width);
                     if (score >= bestMatchScore)
                     {
                         // Take the config with the best score, Higher indizes should indicate a better resolution
@@ -144,52 +169,46 @@ namespace Vocaluxe.Lib.Webcam
             }
 
             var moniker = _Devices[0].MonikerString;
-            if (config.MonikerString != "")
+            if (!string.IsNullOrEmpty(config.MonikerString) && _Descriptors.ContainsKey(config.MonikerString))
             {
-                foreach (var device in _Devices)
-                {
-                    if (device.MonikerString == config.MonikerString)
-                    {
-                        moniker = device.MonikerString;
-                        break;
-                    }
-                }
+                moniker = config.MonikerString;
             }
 
-            _Webcam = new VideoCaptureDevice(moniker);
+            _Descriptor = _Descriptors[moniker];
+            _Characteristics = _SelectWebcamConfig(_GetUsableCharacteristics(_Descriptor), config);
 
-            _Webcam.VideoResolution = _SelectWebcamConfig(_Webcam.VideoCapabilities, config);
-
-            _Config.Framerate = _Webcam.VideoResolution.AverageFrameRate;
-            _Config.Height = _Webcam.VideoResolution.FrameSize.Height;
-            _Config.Width = _Webcam.VideoResolution.FrameSize.Width;
-            _Config.MonikerString = _Webcam.Source;
+            _Config.Framerate = _GetFramerate(_Characteristics);
+            _Config.Height = _Characteristics.Height;
+            _Config.Width = _Characteristics.Width;
+            _Config.MonikerString = moniker;
 
             return true;
         }
 
         public void Start()
         {
-            if (_Webcam == null)
+            if (_Descriptor == null)
             {
                 return;
             }
 
             if (_IsCapturing)
             {
-                if (_Paused)
-                {
-                    _Webcam.NewFrame += _OnFrame;
-                    _Paused = false;
-                }
-            }
-            else
-            {
-                //Subscribe to NewFrame event
-                _Webcam.NewFrame += _OnFrame;
                 _Paused = false;
-                _Webcam.Start();
+                return;
+            }
+
+            try
+            {
+                _Webcam = _Descriptor.OpenAsync(_Characteristics, _OnFrame).GetAwaiter().GetResult();
+                _Paused = false;
+                _Webcam.StartAsync().GetAwaiter().GetResult();
                 _IsCapturing = true;
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "Error starting webcam " + _Descriptor.Name);
+                _CloseDevice();
             }
         }
 
@@ -197,7 +216,6 @@ namespace Vocaluxe.Lib.Webcam
         {
             if (_Webcam != null && !_Paused)
             {
-                _Webcam.NewFrame -= _OnFrame;
                 lock (_MutexData) //Make sure all events are finished or not yet startet for consistency
                 {
                     _Paused = true;
@@ -209,12 +227,32 @@ namespace Vocaluxe.Lib.Webcam
         {
             if (_Webcam != null)
             {
-                _Webcam.SignalToStop();
-                _Webcam.NewFrame -= _OnFrame;
                 lock (_MutexData) //Make sure all events are finished or not yet startet for consistency
                 {
                     _IsCapturing = false;
                 }
+
+                _CloseDevice();
+            }
+        }
+
+        private void _CloseDevice()
+        {
+            var webcam = _Webcam;
+            _Webcam = null;
+            if (webcam == null)
+            {
+                return;
+            }
+
+            try
+            {
+                webcam.StopAsync().GetAwaiter().GetResult();
+                webcam.Dispose();
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "Error stopping webcam");
             }
         }
 
@@ -258,36 +296,52 @@ namespace Vocaluxe.Lib.Webcam
             }
         }
 
-        private void _OnFrame(object sender, NewFrameEventArgs e)
+        private void _OnFrame(PixelBufferScope bufferScope)
         {
-            if (_Paused)
+            if (_Paused || !IsCapturing())
             {
                 return;
             }
 
-            if (e.Frame.Width == 0 || e.Frame.Height == 0)
+            var image = bufferScope.Buffer.ExtractImage();
+            bufferScope.ReleaseNow();
+
+            Bitmap frame;
+            try
+            {
+                frame = new Bitmap(new MemoryStream(image));
+            }
+            catch (ArgumentException)
             {
                 return;
             }
 
-            lock (_MutexData)
+            using (frame)
             {
-                if (!IsCapturing())
+                if (frame.Width == 0 || frame.Height == 0)
                 {
                     return;
                 }
 
-                if (_Data == null || _Data.Length != e.Frame.Width * e.Frame.Height * 4)
+                lock (_MutexData)
                 {
-                    _Data = new byte[e.Frame.Width * e.Frame.Height * 4];
-                }
+                    if (!IsCapturing())
+                    {
+                        return;
+                    }
 
-                _Width = e.Frame.Width;
-                _Height = e.Frame.Height;
-                var bitmapdata = e.Frame.LockBits(new Rectangle(0, 0, _Width, _Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-                Marshal.Copy(bitmapdata.Scan0, _Data, 0, _Data.Length);
-                e.Frame.UnlockBits(bitmapdata);
-                _NewFrameAvailable = true;
+                    if (_Data == null || _Data.Length != frame.Width * frame.Height * 4)
+                    {
+                        _Data = new byte[frame.Width * frame.Height * 4];
+                    }
+
+                    _Width = frame.Width;
+                    _Height = frame.Height;
+                    var bitmapdata = frame.LockBits(new Rectangle(0, 0, _Width, _Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                    Marshal.Copy(bitmapdata.Scan0, _Data, 0, _Data.Length);
+                    frame.UnlockBits(bitmapdata);
+                    _NewFrameAvailable = true;
+                }
             }
         }
 
@@ -298,7 +352,7 @@ namespace Vocaluxe.Lib.Webcam
 
         public bool IsDeviceAvailable()
         {
-            return _Webcam != null;
+            return _Descriptor != null;
         }
 
         public bool IsCapturing()

@@ -22,6 +22,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace Vocaluxe.Base.Server
 {
@@ -80,6 +81,9 @@ namespace Vocaluxe.Base.Server
         [DataMember]
         private string imageId = "";
         // ReSharper restore InconsistentNaming
+
+        [JsonConstructor]
+        private CBase64Image() { }
 
         public CBase64Image(Image img, ImageFormat format)
         {

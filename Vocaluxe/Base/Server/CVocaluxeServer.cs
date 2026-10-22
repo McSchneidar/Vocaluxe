@@ -16,21 +16,25 @@
 #endregion
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
-using System.ServiceModel;
-using System.ServiceModel.Web;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.Logging;
 using Vocaluxe.Lib.Input;
 using Vocaluxe.Lib.Playlist;
 using VocaluxeLib;
+using VocaluxeLib.Log;
 using VocaluxeLib.Menu;
 using VocaluxeLib.Profile;
 using VocaluxeLib.Songs;
@@ -39,10 +43,13 @@ namespace Vocaluxe.Base.Server
 {
     static class CVocaluxeServer
     {
-        private static ServiceHost _Host;
+        private const long _MaxRequestSize = 10485760;
+        private const string _CertificateFileName = "ServerCertificate.pfx";
+
+        private static WebApplication _Host;
         private static Uri _BaseAddress;
         private static bool _Encrypted;
-        private static readonly Queue<Task> _ServerTaskQueue = new Queue<Task>();
+        private static readonly ConcurrentQueue<Task> _ServerTaskQueue = new ConcurrentQueue<Task>();
 
         private class CServerController : CControllerFramework
         {
@@ -74,22 +81,6 @@ namespace Vocaluxe.Base.Server
             var protocol = encrypted ? "https" : "http";
             _BaseAddress = new Uri(protocol + "://" + hostname + ":" + port + "/");
             _Encrypted = encrypted;
-            _Host = new WebServiceHost(typeof(CWebservice), _BaseAddress);
-
-            var wb = new WebHttpBinding
-            {
-                MaxReceivedMessageSize = 10485760,
-                MaxBufferSize = 10485760,
-                MaxBufferPoolSize = 10485760,
-                ReaderQuotas = { MaxStringContentLength = 10485760, MaxArrayLength = 10485760, MaxBytesPerRead = 10485760 }
-            };
-            if (encrypted)
-            {
-                wb.Security.Mode = WebHttpSecurityMode.Transport;
-                wb.Security.Transport = new HttpTransportSecurity { ClientCredentialType = HttpClientCredentialType.None };
-            }
-
-            _Host.AddServiceEndpoint(typeof(ICWebservice), wb, "");
 
             Start();
 
@@ -98,86 +89,105 @@ namespace Vocaluxe.Base.Server
 
         public static void Start()
         {
-            if (CConfig.Config.Server.ServerActive == EOffOn.TR_CONFIG_ON)
+            if (CConfig.Config.Server.ServerActive != EOffOn.TR_CONFIG_ON || IsServerRunning())
             {
-                try
+                return;
+            }
+
+            try
+            {
+                var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions { ContentRootPath = AppContext.BaseDirectory });
+                builder.Logging.ClearProviders();
+                builder.WebHost.ConfigureKestrel(options =>
                 {
-                    _RegisterUrlAndCert(_BaseAddress.Port, false);
-                    _Host.Open();
-                }
-                catch (CommunicationException e)
-                {
-                    if (e is AddressAccessDeniedException || e is AddressAlreadyInUseException)
+                    options.Limits.MaxRequestBodySize = _MaxRequestSize;
+                    options.ListenAnyIP(_BaseAddress.Port, listenOptions =>
                     {
-                        _RegisterUrlAndCert(_BaseAddress.Port, true);
-                        try
+                        if (_Encrypted)
                         {
-                            _Host.Abort();
-                            Init();
-                            _Host.Open();
+                            listenOptions.UseHttps(_GetServerCertificate());
                         }
-                        catch (CommunicationException)
-                        {
-                            _Host.Abort();
-                            MessageBox.Show("Problem while initialization of webserver. You may try a different port (Change it in config.xml)");
-                        }
-                    }
-                    else
-                    {
-                        _Host.Abort();
-                    }
-                }
+                    });
+                });
+
+                var app = builder.Build();
+                CWebApi.Map(app);
+                app.StartAsync().GetAwaiter().GetResult();
+                _Host = app;
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "Problem while initialization of webserver");
+                _Host = null;
+                MessageBox.Show("Problem while initialization of webserver. You may try a different port (Change it in config.xml)");
             }
         }
 
         public static void Close()
         {
-            if (_Host != null)
+            if (_Host == null)
             {
-                try
-                {
-                    _Host.Close();
-                }
-                catch (CommunicationException)
-                {
-                    _Host.Abort();
-                }
+                return;
             }
-        }
 
-        private static void _RegisterUrlAndCert(int port, bool reserve)
-        {
-#if WIN
-            var info = new ProcessStartInfo
-            {
-                FileName = "VocaluxeServerConfig.exe",
-                WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory,
-                Arguments = AppDomain.CurrentDomain.FriendlyName + " " + port + " " + (_Encrypted ? "true" : "false") + (reserve ? " true" : ""),
-                UseShellExecute = true,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
-            };
             try
             {
-                using (var p = Process.Start(info))
-                {
-                    p.WaitForExit();
-                    if (p.ExitCode != 0)
-                    {
-                        MessageBox.Show("Registering the Server failed (Code " + p.ExitCode + ")!\r\nThe Server might not work correctly.");
-                    }
-
-                    p.Close();
-                }
+                _Host.StopAsync().Wait(TimeSpan.FromSeconds(5));
+                _Host.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(5));
             }
             catch (Exception e)
             {
-                MessageBox.Show("Registering the Server failed (" + e + ")!\r\nThe Server might not work correctly.");
+                CLog.Error(e, "Error closing the webserver");
             }
-#else
-            //Required?
 
-#endif
+            _Host = null;
+        }
+
+        private static X509Certificate2 _GetServerCertificate()
+        {
+            var certPath = Path.Combine(CSettings.DataFolder, _CertificateFileName);
+            if (File.Exists(certPath))
+            {
+                try
+                {
+                    var cert = X509CertificateLoader.LoadPkcs12FromFile(certPath, null);
+                    if (cert.NotAfter > DateTime.Now.AddDays(1))
+                    {
+                        return cert;
+                    }
+                }
+                catch (CryptographicException e)
+                {
+                    CLog.Error(e, "Invalid server certificate, creating a new one");
+                }
+            }
+
+            using (var rsa = RSA.Create(2048))
+            {
+                var request = new CertificateRequest("CN=Vocaluxe Server", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                request.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, false));
+                request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, false));
+                request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(new OidCollection { new Oid("1.3.6.1.5.5.7.3.1") }, false));
+                var san = new SubjectAlternativeNameBuilder();
+                san.AddDnsName(Dns.GetHostName());
+                san.AddDnsName("localhost");
+                request.CertificateExtensions.Add(san.Build());
+
+                using (var cert = request.CreateSelfSigned(DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(10)))
+                {
+                    var pfx = cert.Export(X509ContentType.Pfx);
+                    try
+                    {
+                        File.WriteAllBytes(certPath, pfx);
+                    }
+                    catch (Exception e)
+                    {
+                        CLog.Error(e, "Could not save the server certificate");
+                    }
+
+                    return X509CertificateLoader.LoadPkcs12(pfx, null);
+                }
+            }
         }
 
         public static string GetServerAddress()
@@ -187,12 +197,7 @@ namespace Vocaluxe.Base.Server
 
         public static bool IsServerRunning()
         {
-            if (_Host == null)
-            {
-                return false;
-            }
-
-            return _Host.State == CommunicationState.Opened;
+            return _Host != null;
         }
         #endregion
 
@@ -200,10 +205,9 @@ namespace Vocaluxe.Base.Server
         public static void ProcessServerTasks()
         {
             //Serial processing - one by one
-            while (_ServerTaskQueue.Count > 0)
+            //Get a task from the queue
+            while (_ServerTaskQueue.TryDequeue(out var task))
             {
-                //Get a task from the queue
-                var task = _ServerTaskQueue.Dequeue();
                 //Start the task
                 task.RunSynchronously(TaskScheduler.FromCurrentSynchronizationContext());
             }

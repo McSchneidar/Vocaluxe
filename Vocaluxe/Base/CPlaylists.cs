@@ -259,7 +259,7 @@ namespace Vocaluxe.Base
             try
             {
                 StreamReader sr;
-                using (sr = new StreamReader(file, Encoding.Default, true))
+                using (sr = new StreamReader(file, CEncoding.Ansi, true))
                 {
                     string line;
                     while ((line = sr.ReadLine()) != null)

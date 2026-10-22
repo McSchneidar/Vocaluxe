@@ -77,11 +77,7 @@ namespace Vocaluxe.Screens
             _SelectSlides[_SelectSlideSoundEffectVolume].AddValues(new string[]
                 { "0", "5", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75", "80", "85", "90", "95", "100" });
             _SelectSlides[_SelectSlideSoundEffectVolume].Selection = CConfig.SoundEffectVolume / 5;
-            if (CConfig.Config.Sound.PlayBackLib == EPlaybackLib.GstreamerSharp)
-            {
-                _SelectSlides[_SelectSlideKaraokeEffect].SetValues<EOffOn>((int)CConfig.Config.Sound.KaraokeEffect);
-                _SelectSlides[_SelectSlideKaraokeEffect].Selection = (int)CConfig.Config.Sound.KaraokeEffect;
-            }
+            _SelectSlides[_SelectSlideKaraokeEffect].Visible = false;
         }
 
         public override bool HandleInput(SKeyEvent keyEvent)
@@ -188,11 +184,6 @@ namespace Vocaluxe.Screens
             CConfig.Config.Sound.BackgroundMusic = (EBackgroundMusicOffOn)_SelectSlides[_SelectSlideBackgroundMusic].Selection;
             CConfig.Config.Sound.BackgroundMusicSource = (EBackgroundMusicSource)_SelectSlides[_SelectSlideBackgroundMusicSource].Selection;
             CConfig.BackgroundMusicVolume = _SelectSlides[_SelectSlideBackgroundMusicVolume].Selection * 5;
-            if (CConfig.Config.Sound.PlayBackLib == EPlaybackLib.GstreamerSharp)
-            {
-                CConfig.Config.Sound.KaraokeEffect = (EOffOn)_SelectSlides[_SelectSlideKaraokeEffect].Selection;
-            }
-
             CConfig.SaveConfig();
 
             CBackgroundMusic.SetMusicSource(CConfig.Config.Sound.BackgroundMusicSource);

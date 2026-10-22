@@ -184,6 +184,7 @@ namespace VocaluxeLib
 
     public enum EWebcamLib
     {
+        FlashCap,
         AForgeNet
     }
 

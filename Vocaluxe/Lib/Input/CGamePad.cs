@@ -20,10 +20,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Windows.Forms;
-using OpenTK.Input;
 using Vocaluxe.Base;
 using VocaluxeLib;
-using ButtonState = OpenTK.Input.ButtonState;
+using Vocaluxe.Lib.Input.XInputGamePad;
+using ButtonState = Vocaluxe.Lib.Input.XInputGamePad.ButtonState;
 
 namespace Vocaluxe.Lib.Input
 {

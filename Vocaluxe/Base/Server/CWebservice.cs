@@ -18,19 +18,15 @@
 using System;
 using System.IO;
 using System.Net;
-using System.ServiceModel;
-using System.ServiceModel.Channels;
-using System.ServiceModel.Web;
 
 namespace Vocaluxe.Base.Server
 {
-    class CWebservice : ICWebservice
+    class CWebservice
     {
         private static Guid _GetSession()
         {
             var sessionKey = Guid.Empty;
-            var sessionHeader =
-                ((HttpRequestMessageProperty)OperationContext.Current.IncomingMessageProperties["httpRequest"]).Headers["session"];
+            var sessionHeader = CWebContext.GetRequestHeader("session");
             if (string.IsNullOrEmpty(sessionHeader))
             {
                 return sessionKey;
@@ -73,11 +69,8 @@ namespace Vocaluxe.Base.Server
             var sessionKey = _GetSession();
             if (sessionKey == Guid.Empty)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = "No session";
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription("No session");
 
                 return Guid.Empty;
             }
@@ -85,11 +78,8 @@ namespace Vocaluxe.Base.Server
             var profileId = CSessionControl.GetUserIdFromSession(sessionKey);
             if (profileId == Guid.Empty)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = "No session";
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription("No session");
 
                 return Guid.Empty;
             }
@@ -150,11 +140,8 @@ namespace Vocaluxe.Base.Server
             var sessionId = CSessionControl.OpenSession(username, password);
             if (sessionId == Guid.Empty)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = "Wrong username or password";
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription("Wrong username or password");
             }
 
             return sessionId;
@@ -168,24 +155,16 @@ namespace Vocaluxe.Base.Server
 
         public Stream Index()
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "text/html";
-            }
+            CWebContext.SetContentType("text/html");
 
             return new MemoryStream(CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "index.html"));
         }
 
         public Stream GetJsFile(string filename)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "text/javascript";
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddHours(4).ToString("r"));
-            }
+            CWebContext.SetContentType("text/javascript");
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddHours(4));
 
             var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "js/" + filename);
 
@@ -194,24 +173,16 @@ namespace Vocaluxe.Base.Server
                 return new MemoryStream(data);
             }
 
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-            }
+            CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
             return null;
         }
 
         public Stream GetCssFile(string filename)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "text/css";
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddHours(4).ToString("r"));
-            }
+            CWebContext.SetContentType("text/css");
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddHours(4));
 
             var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "css/" + filename);
 
@@ -220,50 +191,34 @@ namespace Vocaluxe.Base.Server
                 return new MemoryStream(data);
             }
 
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-            }
+            CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
             return null;
         }
 
         public Stream GetCssImageFile(string filename)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "image/png";
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddYears(1).ToString("r"));
-            }
+            CWebContext.SetContentType("image/png");
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddYears(1));
 
-            var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "css\\images\\" + filename);
+            var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "css/images/" + filename);
 
             if (data != null)
             {
                 return new MemoryStream(data);
             }
 
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-            }
+            CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
             return null;
         }
 
         public Stream GetImgFile(string filename)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "image/png";
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddYears(1).ToString("r"));
-            }
+            CWebContext.SetContentType("image/png");
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddYears(1));
 
             var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "img/" + filename);
 
@@ -272,24 +227,16 @@ namespace Vocaluxe.Base.Server
                 return new MemoryStream(data);
             }
 
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-            }
+            CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
             return null;
         }
 
         public Stream GetLocaleFile(string filename)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.ContentType = "text/javascript";
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddHours(4).ToString("r"));
-            }
+            CWebContext.SetContentType("text/javascript");
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddHours(4));
 
             var data = CVocaluxeServer.DoTask(CVocaluxeServer.GetSiteFile, "locales/" + filename);
 
@@ -298,10 +245,7 @@ namespace Vocaluxe.Base.Server
                 return new MemoryStream(data);
             }
 
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-            }
+            CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
             return null;
         }
@@ -341,13 +285,8 @@ namespace Vocaluxe.Base.Server
 
         public Stream GetMp3File(int songId)
         {
-            if (WebOperationContext.Current != null)
-            {
-                WebOperationContext.Current.OutgoingResponse.LastModified = DateTime.UtcNow;
-                WebOperationContext.Current.OutgoingResponse.Headers.Add(
-                    HttpResponseHeader.Expires,
-                    DateTime.UtcNow.AddYears(1).ToString("r"));
-            }
+            CWebContext.SetLastModified(DateTime.UtcNow);
+            CWebContext.SetExpires(DateTime.UtcNow.AddYears(1));
 
 
             var path = CVocaluxeServer.DoTask(CVocaluxeServer.GetMp3Path, songId);
@@ -360,32 +299,26 @@ namespace Vocaluxe.Base.Server
                      || path.EndsWith(".wav", StringComparison.InvariantCulture)
                      || path.EndsWith(".webm", StringComparison.InvariantCulture)))
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.NotFound;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.NotFound);
 
                 return null;
             }
 
-            if (WebOperationContext.Current != null)
+            if (path.EndsWith(".mp3", StringComparison.InvariantCulture))
             {
-                if (path.EndsWith(".mp3", StringComparison.InvariantCulture))
-                {
-                    WebOperationContext.Current.OutgoingResponse.ContentType = "audio/mpeg";
-                }
-                else if (path.EndsWith(".ogg", StringComparison.InvariantCulture))
-                {
-                    WebOperationContext.Current.OutgoingResponse.ContentType = "audio/ogg";
-                }
-                else if (path.EndsWith(".wav", StringComparison.InvariantCulture))
-                {
-                    WebOperationContext.Current.OutgoingResponse.ContentType = "audio/wav";
-                }
-                else if (path.EndsWith(".webm", StringComparison.InvariantCulture))
-                {
-                    WebOperationContext.Current.OutgoingResponse.ContentType = "audio/webm";
-                }
+                CWebContext.SetContentType("audio/mpeg");
+            }
+            else if (path.EndsWith(".ogg", StringComparison.InvariantCulture))
+            {
+                CWebContext.SetContentType("audio/ogg");
+            }
+            else if (path.EndsWith(".wav", StringComparison.InvariantCulture))
+            {
+                CWebContext.SetContentType("audio/wav");
+            }
+            else if (path.EndsWith(".webm", StringComparison.InvariantCulture))
+            {
+                CWebContext.SetContentType("audio/webm");
             }
 
             return File.OpenRead(path);
@@ -406,11 +339,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
 
                 return new SPlaylistData();
             }
@@ -429,11 +359,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
             }
         }
 
@@ -450,11 +377,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
             }
         }
 
@@ -471,11 +395,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
             }
         }
 
@@ -487,11 +408,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
 
                 return false;
             }
@@ -505,11 +423,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
 
                 return new SPlaylistSongInfo[0];
             }
@@ -528,11 +443,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
             }
         }
 
@@ -549,11 +461,8 @@ namespace Vocaluxe.Base.Server
             }
             catch (ArgumentException e)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = e.Message;
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription(e.Message);
 
                 return -1;
             }
@@ -585,22 +494,16 @@ namespace Vocaluxe.Base.Server
 
             if (sessionKey == Guid.Empty)
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = "No session";
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription("No session");
 
                 return false;
             }
 
             if (!CSessionControl.RequestRight(sessionKey, requestedRight))
             {
-                if (WebOperationContext.Current != null)
-                {
-                    WebOperationContext.Current.OutgoingResponse.StatusCode = HttpStatusCode.Forbidden;
-                    WebOperationContext.Current.OutgoingResponse.StatusDescription = "Not allowed";
-                }
+                CWebContext.SetStatusCode(HttpStatusCode.Forbidden);
+                CWebContext.SetStatusDescription("Not allowed");
 
                 return false;
             }

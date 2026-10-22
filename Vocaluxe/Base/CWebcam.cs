@@ -35,12 +35,8 @@ namespace Vocaluxe.Base
 
             switch (CConfig.Config.Video.WebcamLib)
             {
-                case EWebcamLib.AForgeNet:
-                    _Webcam = new CAForgeNet();
-                    break;
-
                 default:
-                    _Webcam = new CAForgeNet();
+                    _Webcam = new CFlashCap();
                     break;
             }
 

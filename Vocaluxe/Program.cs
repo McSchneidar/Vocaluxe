@@ -21,7 +21,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Windows.Forms;
 using SQLitePCL;
@@ -30,6 +29,7 @@ using Vocaluxe.Base.Fonts;
 using Vocaluxe.Base.Server;
 using Vocaluxe.Base.ThemeSystem;
 using Vocaluxe.Reporting;
+using VocaluxeLib;
 using VocaluxeLib.Log;
 
 [assembly: InternalsVisibleTo("VocaluxeTests")]
@@ -46,7 +46,7 @@ namespace Vocaluxe
     {
         private static CSplashScreen _SplashScreen;
 
-        [STAThread, HandleProcessCorruptedStateExceptions]
+        [STAThread]
         // ReSharper disable InconsistentNaming
         private static void Main(string[] args)
             // ReSharper restore InconsistentNaming
@@ -63,13 +63,7 @@ namespace Vocaluxe
             COSFunctions.AddEnvironmentPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs\\unmanaged\\x64\\"));
 #endif
 
-            // Microsoft.Data.Sqlite (SQLitePCLRaw) native library location
-#if ARCH_X86
-            COSFunctions.AddEnvironmentPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs\\managed\\runtimes\\win-x86\\native\\"));
-#endif
-#if ARCH_X64
-            COSFunctions.AddEnvironmentPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs\\managed\\runtimes\\win-x64\\native\\"));
-#endif
+            CEncoding.Init();
 
             // Make sure SQLitePCL is initialized before any DB usage
             Batteries_V2.Init();
@@ -475,7 +469,6 @@ namespace Vocaluxe
         }
 
 #if !DEBUG
-        [HandleProcessCorruptedStateExceptions]
         private static void UnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs args)
         {
             var e = (Exception)args.ExceptionObject;

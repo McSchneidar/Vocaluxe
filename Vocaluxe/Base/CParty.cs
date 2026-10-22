@@ -16,11 +16,17 @@
 #endregion
 
 using System;
-using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
+using System.Text;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
+using Microsoft.CodeAnalysis.Text;
 using Vocaluxe.Base.ThemeSystem;
 using VocaluxeLib;
 using VocaluxeLib.Log;
@@ -315,43 +321,74 @@ namespace Vocaluxe.Base
                 return null;
             }
 
-            var compilerParams = new CompilerParameters();
-
-            compilerParams.ReferencedAssemblies.Add("System.Windows.Forms.dll");
-            compilerParams.ReferencedAssemblies.Add("System.dll");
-            compilerParams.ReferencedAssemblies.Add("System.Core.dll");
-            compilerParams.ReferencedAssemblies.Add(Path.Combine("libs", "managed", "VocaluxeLib.dll"));
-            compilerParams.GenerateInMemory = true;
-#if DEBUG
-            compilerParams.IncludeDebugInformation = true;
-#endif
-
-            using (var cdp = CodeDomProvider.CreateProvider("CSharp"))
+            SyntaxTree[] syntaxTrees;
+            try
             {
-                CompilerResults compileResult;
+                syntaxTrees = files.Select(file => CSharpSyntaxTree.ParseText(SourceText.From(File.ReadAllText(file), Encoding.UTF8, SourceHashAlgorithm.Sha256),
+                    _ParseOptions, file)).ToArray();
+            }
+            catch (Exception e)
+            {
+                CLog.Error("Error Compiling Source (" + CHelper.ListStrings(files) + "): " + e.Message);
+                return null;
+            }
 
-                try
-                {
-                    compileResult = cdp.CompileAssemblyFromFile(compilerParams, files);
-                }
-                catch (Exception e)
-                {
-                    CLog.Error("Error Compiling Source (" + CHelper.ListStrings(files) + "): " + e.Message);
-                    return null;
-                }
+            var compilation = CSharpCompilation.Create("PartyMode_" + Path.GetFileName(Path.GetDirectoryName(Path.GetDirectoryName(files[0]))) + "_" + Guid.NewGuid().ToString("N"),
+                syntaxTrees, _GetCompilationReferences(),
+                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+#if DEBUG
+                    optimizationLevel: OptimizationLevel.Debug
+#else
+                    optimizationLevel: OptimizationLevel.Release
+#endif
+                ));
 
-                if (compileResult.Errors.Count > 0)
+            using (var peStream = new MemoryStream())
+            using (var pdbStream = new MemoryStream())
+            {
+                var emitResult = compilation.Emit(peStream, pdbStream, options: new EmitOptions(debugInformationFormat: DebugInformationFormat.PortablePdb));
+
+                if (!emitResult.Success)
                 {
-                    foreach (CompilerError e in compileResult.Errors)
+                    foreach (var e in emitResult.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error))
                     {
-                        CLog.Error("Error Compiling Source (" + CHelper.ListStrings(files) + "): " + e.ErrorText + " in '" + e.FileName + "' (" + e.Line + ")");
+                        var lineSpan = e.Location.GetLineSpan();
+                        CLog.Error("Error Compiling Source (" + CHelper.ListStrings(files) + "): " + e.GetMessage() + " in '" + lineSpan.Path + "' (" +
+                                   (lineSpan.StartLinePosition.Line + 1) + ")");
                     }
 
                     return null;
                 }
 
-                return compileResult.CompiledAssembly;
+                peStream.Seek(0, SeekOrigin.Begin);
+                pdbStream.Seek(0, SeekOrigin.Begin);
+                return AssemblyLoadContext.Default.LoadFromStream(peStream, pdbStream);
             }
+        }
+
+        private static readonly CSharpParseOptions _ParseOptions = new CSharpParseOptions(LanguageVersion.Latest);
+
+        private static List<MetadataReference> _CompilationReferences;
+
+        private static List<MetadataReference> _GetCompilationReferences()
+        {
+            if (_CompilationReferences != null)
+            {
+                return _CompilationReferences;
+            }
+
+            var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var trustedAssemblies = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string;
+            if (!string.IsNullOrEmpty(trustedAssemblies))
+            {
+                paths.UnionWith(trustedAssemblies.Split(Path.PathSeparator).Where(path => !string.IsNullOrEmpty(path)));
+            }
+
+            paths.Add(typeof(object).Assembly.Location);
+            paths.Add(typeof(IPartyMode).Assembly.Location);
+
+            _CompilationReferences = paths.Where(File.Exists).Select(path => (MetadataReference)MetadataReference.CreateFromFile(path)).ToList();
+            return _CompilationReferences;
         }
 
         private static CMenuParty _GetPartyScreenInstance(Assembly assembly, string screenName, string partyModeName)
