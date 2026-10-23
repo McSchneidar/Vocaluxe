@@ -9,10 +9,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "api:generate": "npx --yes openapi-typescript@7 ${VOCALUXE_URL:-http://localhost:3000}/swagger/v1/swagger.json -o src/api/schema.d.ts"
   },
   "dependencies": {
-    "vue": "^3.5.44"
+    "openapi-fetch": "^0.17.0",
+    "vue": "^3.5.44",
+    "vue-i18n": "^11.4.16",
+    "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

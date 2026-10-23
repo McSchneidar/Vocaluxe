@@ -15,7 +15,10 @@
 // along with Vocaluxe. If not, see <http://www.gnu.org/licenses/>.
 #endregion
 
+using System;
+using System.Collections.Generic;
 using VocaluxeWeb.Contracts;
+using VocaluxeWeb.Remote;
 
 namespace VocaluxeWeb
 {
@@ -30,5 +33,49 @@ namespace VocaluxeWeb
 
         /// <summary>Current state of the game. Main thread only.</summary>
         StateDto GetState();
+
+        #region profiles
+        /// <summary>All profiles, sorted by name. Main thread only.</summary>
+        IList<RemoteProfile> GetProfiles();
+
+        /// <summary>Creates a profile and returns its id. Main thread only.</summary>
+        Guid CreateProfile(ProfileChange change);
+
+        /// <summary>Changes the given fields of a profile. Main thread only.</summary>
+        void UpdateProfile(Guid profileId, ProfileChange change);
+        #endregion
+
+        #region songs
+        /// <summary>Changes whenever songs are added or (re)loaded. Main thread only.</summary>
+        int SongLibraryVersion { get; }
+
+        /// <summary>All songs. Main thread only.</summary>
+        IList<RemoteSong> GetSongs();
+        #endregion
+
+        #region playlists
+        /// <summary>All playlists with their songs. Main thread only.</summary>
+        IList<RemotePlaylist> GetPlaylists();
+
+        /// <summary>Creates an empty playlist and returns its id. Main thread only.</summary>
+        int CreatePlaylist(string name);
+
+        /// <summary>Main thread only.</summary>
+        void RenamePlaylist(int playlistId, string name);
+
+        /// <summary>Main thread only.</summary>
+        void DeletePlaylist(int playlistId);
+
+        /// <summary>Replaces all songs of a playlist and saves it. Main thread only.</summary>
+        void SetPlaylistEntries(int playlistId, IList<RemotePlaylistEntry> entries);
+        #endregion
+
+        #region input
+        /// <summary>Sends a key press to the game as if it came from a keyboard. Thread-safe.</summary>
+        void SendKey(ERemoteKey key);
+
+        /// <summary>Types text into the game. Thread-safe.</summary>
+        void SendText(string text);
+        #endregion
     }
 }

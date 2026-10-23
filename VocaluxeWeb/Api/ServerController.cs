@@ -19,32 +19,41 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using VocaluxeWeb.Contracts;
 using VocaluxeWeb.Dispatching;
+using VocaluxeWeb.Services;
 
 namespace VocaluxeWeb.Api
 {
-    [ApiController]
     [Route("api/v1")]
-    [Produces("application/json")]
-    public sealed class ServerController : ControllerBase
+    public sealed class ServerController : ApiControllerBase
     {
         private readonly IVocaluxeRemote _Remote;
         private readonly CMainThreadDispatcher _Dispatcher;
+        private readonly CWebSettingsStore _Settings;
 
-        public ServerController(IVocaluxeRemote remote, CMainThreadDispatcher dispatcher)
+        public ServerController(IVocaluxeRemote remote, CMainThreadDispatcher dispatcher, CWebSettingsStore settings)
         {
             _Remote = remote;
             _Dispatcher = dispatcher;
+            _Settings = settings;
         }
 
-        /// <summary>Name and version of the server.</summary>
+        /// <summary>Name and version of the server and how logging in works.</summary>
         [HttpGet("server")]
         public ActionResult<ServerInfoDto> GetServerInfo()
         {
-            return new ServerInfoDto { Name = "Vocaluxe", Version = _Remote.Version };
+            var settings = _Settings.Current;
+            return new ServerInfoDto
+            {
+                Name = "Vocaluxe",
+                Version = _Remote.Version,
+                RequireJoinToken = settings.RequireJoinToken,
+                AllowProfileCreation = settings.AllowProfileCreation
+            };
         }
 
         /// <summary>Current state of the game.</summary>
         [HttpGet("state")]
+        [RequireSession]
         public async Task<ActionResult<StateDto>> GetState()
         {
             return await _Dispatcher.InvokeAsync(() => _Remote.GetState());

@@ -15,12 +15,14 @@
 // along with Vocaluxe. If not, see <http://www.gnu.org/licenses/>.
 #endregion
 
+using System.ComponentModel.DataAnnotations;
+
 namespace VocaluxeWeb.Contracts
 {
     public sealed class StateDto
     {
         /// <summary>Name of the screen that is currently shown, e.g. "Main", "Song", "Sing".</summary>
-        public string Screen { get; set; }
+        [Required] public string Screen { get; set; }
 
         /// <summary>The song that is currently loaded, or null.</summary>
         public SongSummaryDto CurrentSong { get; set; }
@@ -28,14 +30,16 @@ namespace VocaluxeWeb.Contracts
 
     public sealed class SongSummaryDto
     {
-        public int Id { get; set; }
-        public string Title { get; set; }
-        public string Artist { get; set; }
+        [Required] public int Id { get; set; }
+        [Required] public string Title { get; set; }
+        [Required] public string Artist { get; set; }
     }
 
     public sealed class ServerInfoDto
     {
-        public string Name { get; set; }
-        public string Version { get; set; }
+        [Required] public string Name { get; set; }
+        [Required] public string Version { get; set; }
+        [Required] public bool RequireJoinToken { get; set; }
+        [Required] public bool AllowProfileCreation { get; set; }
     }
 }

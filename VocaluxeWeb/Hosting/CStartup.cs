@@ -26,8 +26,10 @@ using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.OpenApi.Models;
+using Newtonsoft.Json.Converters;
 using VocaluxeWeb.Api;
 using VocaluxeWeb.Dispatching;
+using VocaluxeWeb.Services;
 
 namespace VocaluxeWeb.Hosting
 {
@@ -35,10 +37,15 @@ namespace VocaluxeWeb.Hosting
     {
         private const string _IndexFile = "index.html";
 
-        public static void ConfigureServices(IServiceCollection services, IVocaluxeRemote remote, CMainThreadDispatcher dispatcher, CWebServerOptions options)
+        public static void ConfigureServices(IServiceCollection services, IVocaluxeRemote remote, CMainThreadDispatcher dispatcher, CWebSettingsStore settings, CWebServerOptions options)
         {
             services.AddSingleton(remote);
             services.AddSingleton(dispatcher);
+            services.AddSingleton(settings);
+            services.AddSingleton<CSessionStore>();
+            services.AddSingleton<CSongLibrary>();
+            services.AddSingleton<CQueueService>();
+            services.AddSingleton(new CImageService(options.CachePath));
 
             services.AddResponseCompression(compression =>
             {
@@ -51,7 +58,7 @@ namespace VocaluxeWeb.Hosting
                 .AddApplicationPart(typeof(CStartup).Assembly)
                 .AddApiExplorer()
                 .AddDataAnnotations()
-                .AddJsonFormatters()
+                .AddJsonFormatters(json => json.Converters.Add(new StringEnumConverter()))
                 .SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
 
             services.AddSwaggerGen(swagger =>

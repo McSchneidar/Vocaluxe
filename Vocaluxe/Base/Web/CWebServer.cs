@@ -33,6 +33,10 @@ namespace Vocaluxe.Base.Web
     static class CWebServer
     {
         private const string _CertificateFileName = "WebServer.pfx";
+        private const string _SettingsFileName = "WebServer.json";
+        private const string _CacheFolderName = "WebCache";
+
+        public static readonly CRemoteKeyboard Controller = new CRemoteKeyboard();
 
 #if WIN
         private static CWebHost _Host;
@@ -53,10 +57,12 @@ namespace Vocaluxe.Base.Web
                 UseHttps = CConfig.Config.Server.ServerEncryption == EOffOn.TR_CONFIG_ON,
                 WebRoot = Path.Combine(CSettings.ProgramFolder, CSettings.FolderNameWebsite),
                 CertificatePath = Path.Combine(CSettings.DataFolder, _CertificateFileName),
+                SettingsPath = Path.Combine(CSettings.DataFolder, _SettingsFileName),
+                CachePath = Path.Combine(CSettings.DataFolder, _CacheFolderName),
                 OnError = e => CLog.Error(e, "Webserver request failed")
             };
 
-            var host = new CWebHost(new CVocaluxeRemote(), options);
+            var host = new CWebHost(new CVocaluxeRemote(Controller), options);
             try
             {
                 host.Start();
@@ -100,6 +106,16 @@ namespace Vocaluxe.Base.Web
         {
 #if WIN
             return _Host?.Address?.AbsoluteUri ?? "";
+#else
+            return "";
+#endif
+        }
+
+        /// <summary>Address with join token for the QR code.</summary>
+        public static string GetJoinAddress()
+        {
+#if WIN
+            return _Host?.JoinAddress?.AbsoluteUri ?? "";
 #else
             return "";
 #endif

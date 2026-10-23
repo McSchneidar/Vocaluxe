@@ -96,7 +96,7 @@ namespace Vocaluxe.Screens
             var qr = new QRCodeGenerator();
 
             //ServerAddress
-            var qrcode = qr.CreateQrCode(CWebServer.GetServerAddress(), QRCodeGenerator.ECCLevel.H);
+            var qrcode = qr.CreateQrCode(CWebServer.GetJoinAddress(), QRCodeGenerator.ECCLevel.H);
             _QRServerAddress = CDraw.AddTexture(qrcode.GetGraphic(20));
         }
     }

@@ -1,129 +1,63 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import { api, type ServerInfo, type State } from '@/api/client'
-
-// Phase 1: shows that the chain WebApp -> REST API -> game main thread works.
-// The state is polled until the realtime connection (SignalR) arrives in phase 3.
-const pollIntervalMs = 3000
-
-const server = ref<ServerInfo | null>(null)
-const state = ref<State | null>(null)
-const error = ref<string | null>(null)
-let timer: number | undefined
-
-async function refresh() {
-  try {
-    server.value ??= await api.getServerInfo()
-    state.value = await api.getState()
-    error.value = null
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
-  }
-}
-
-onMounted(() => {
-  refresh()
-  timer = window.setInterval(refresh, pollIntervalMs)
-})
-onUnmounted(() => window.clearInterval(timer))
+import { toasts } from '@/stores/toast'
 </script>
 
 <template>
-  <main class="page">
-    <header class="header">
-      <img src="/icon.png" alt="" class="logo" />
-      <h1>Vocaluxe</h1>
-    </header>
-
-    <section class="card" aria-live="polite">
-      <p class="status" :class="error ? 'status--error' : 'status--ok'">
-        {{ error ? `Keine Verbindung: ${error}` : server ? 'Verbunden' : 'Verbinde…' }}
-      </p>
-
-      <dl v-if="state" class="facts">
-        <dt>Bildschirm</dt>
-        <dd>{{ state.screen }}</dd>
-        <dt>Song</dt>
-        <dd>{{ state.currentSong ? `${state.currentSong.artist} – ${state.currentSong.title}` : '–' }}</dd>
-      </dl>
-    </section>
-
-    <footer class="footer">
-      <span v-if="server">{{ server.name }} {{ server.version }}</span>
-      <a href="/swagger">API</a>
-    </footer>
-  </main>
+  <RouterView />
+  <div class="toasts" aria-live="polite">
+    <TransitionGroup name="toast">
+      <div v-for="t in toasts" :key="t.id" class="toast" :class="`toast--${t.kind}`">{{ t.text }}</div>
+    </TransitionGroup>
+  </div>
 </template>
 
 <style scoped>
-.page {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: max(var(--gutter), env(safe-area-inset-top)) var(--gutter) var(--gutter);
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--tabbar-height) + var(--nowbar-height) + 16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
   display: grid;
-  gap: var(--gutter);
+  gap: 8px;
+  width: min(92vw, 420px);
+  z-index: 50;
+  pointer-events: none;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+@media (min-width: 768px) {
+  .toasts {
+    bottom: calc(var(--nowbar-height) + 24px);
+  }
 }
 
-.header h1 {
-  margin: 0;
-  font-size: 1.5rem;
+@media (min-width: 1200px) {
+  .toasts {
+    bottom: 24px;
+  }
 }
 
-.logo {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-}
-
-.card {
-  background: var(--surface);
+.toast {
+  padding: 12px 16px;
   border-radius: var(--radius);
-  padding: var(--gutter);
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  text-align: center;
 }
 
-.status {
-  margin: 0 0 12px;
-  font-weight: 600;
+.toast--error {
+  background: var(--error);
+  color: #fff;
 }
 
-.status--ok {
-  color: var(--ok);
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 
-.status--error {
-  color: var(--error);
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 16px;
-  margin: 0;
-}
-
-.facts dt {
-  color: var(--text-muted);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.footer {
-  display: flex;
-  justify-content: space-between;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-}
-
-.footer a {
-  color: inherit;
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.2s ease;
 }
 </style>

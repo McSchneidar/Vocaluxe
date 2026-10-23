@@ -35,6 +35,10 @@
     <PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="6.9.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+
   <!-- The WebApp (Vue/TypeScript) is built with Node.js as part of this project.
        The result lands in WebApp\dist and is copied to Output\Website by Vocaluxe.csproj. -->
   <ItemGroup>

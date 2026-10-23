@@ -16,6 +16,7 @@
 #endregion
 
 using System.Collections.Generic;
+using Vocaluxe.Base.Web;
 using Vocaluxe.Lib.Input;
 using Vocaluxe.Lib.Input.WiiMote;
 using VocaluxeLib;
@@ -37,6 +38,7 @@ namespace Vocaluxe.Base
 
             _AddController(new CWiiMote());
             _AddController(new CGamePad());
+            _AddController(CWebServer.Controller);
         }
 
         private static void _AddController(IController controller)

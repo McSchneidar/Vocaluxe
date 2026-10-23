@@ -351,6 +351,7 @@
     <Compile Include="Screens\CScreenOptionsGraphics.cs" />
     <Compile Include="Screens\CScreenOptionsServer.cs" />
     <Compile Include="Base\Web\CWebServer.cs" />
+    <Compile Include="Base\Web\CRemoteKeyboard.cs" />
     <Compile Include="Base\Web\CVocaluxeRemote.cs" Condition="'$(Configuration)' != 'ReleaseLinux' AND '$(Configuration)' != 'DebugLinux'" />
     <Compile Include="Screens\CScreenOptionsSongFolders.cs" />
     <None Include="app.config">

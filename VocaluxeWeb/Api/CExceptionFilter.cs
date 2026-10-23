@@ -16,9 +16,11 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using VocaluxeWeb.Services;
 
 namespace VocaluxeWeb.Api
 {
@@ -38,6 +40,14 @@ namespace VocaluxeWeb.Api
             if (context.Exception is TimeoutException)
             {
                 problem = new ProblemDetails { Status = StatusCodes.Status503ServiceUnavailable, Title = "Vocaluxe is busy, please try again." };
+            }
+            else if (context.Exception is CQueueService.CForbiddenException)
+            {
+                problem = new ProblemDetails { Status = StatusCodes.Status403Forbidden, Title = "You are not allowed to do this." };
+            }
+            else if (context.Exception is ArgumentOutOfRangeException || context.Exception is KeyNotFoundException)
+            {
+                problem = new ProblemDetails { Status = StatusCodes.Status404NotFound, Title = "Not found." };
             }
             else
             {

@@ -47,6 +47,8 @@ tx.exe
 /Output/Screenshots
 /Output/Website
 /Output/WebServer.pfx
+/Output/WebServer.json
+/Output/WebCache
 /VocaluxeWeb/bin
 /Output/Songs
 /Output/Playlists/*.xml

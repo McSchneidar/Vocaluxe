@@ -22,6 +22,7 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using VocaluxeWeb.Dispatching;
+using VocaluxeWeb.Services;
 
 namespace VocaluxeWeb.Hosting
 {
@@ -34,16 +35,22 @@ namespace VocaluxeWeb.Hosting
 
         public CMainThreadDispatcher Dispatcher { get; }
 
+        public CWebSettingsStore Settings { get; }
+
         /// <summary>Address other devices in the network use to reach the server, e.g. http://192.168.0.10:3000/</summary>
         public Uri Address { get; private set; }
 
         public bool IsRunning => _Host != null;
+
+        /// <summary>Address for the QR code: includes the join token, so scanning devices may log in when joining is restricted.</summary>
+        public Uri JoinAddress => Address == null ? null : new UriBuilder(Address) { Query = "join=" + Settings.Current.JoinToken }.Uri;
 
         public CWebHost(IVocaluxeRemote remote, CWebServerOptions options)
         {
             _Remote = remote;
             _Options = options;
             Dispatcher = new CMainThreadDispatcher(options.MainThreadTimeout);
+            Settings = new CWebSettingsStore(options.SettingsPath);
         }
 
         public void Start()
@@ -60,7 +67,7 @@ namespace VocaluxeWeb.Hosting
             var host = new WebHostBuilder()
                 .UseKestrel(kestrel => _ConfigureKestrel(kestrel, certificate))
                 .UseContentRoot(AppDomain.CurrentDomain.BaseDirectory)
-                .ConfigureServices(services => CStartup.ConfigureServices(services, _Remote, Dispatcher, _Options))
+                .ConfigureServices(services => CStartup.ConfigureServices(services, _Remote, Dispatcher, Settings, _Options))
                 .Configure(app => CStartup.Configure(app, _Options))
                 .Build();
 

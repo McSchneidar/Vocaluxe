@@ -32,6 +32,12 @@ namespace VocaluxeWeb.Hosting
         /// <summary>Where the self-signed certificate is stored (only used with HTTPS).</summary>
         public string CertificatePath;
 
+        /// <summary>JSON file with the webserver settings (permissions, join token, ...).</summary>
+        public string SettingsPath;
+
+        /// <summary>Folder for scaled covers and avatars.</summary>
+        public string CachePath;
+
         /// <summary>How long a request waits for the game's main thread.</summary>
         public TimeSpan MainThreadTimeout = TimeSpan.FromSeconds(5);
 
