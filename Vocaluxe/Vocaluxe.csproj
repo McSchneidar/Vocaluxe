@@ -433,7 +433,7 @@
       <RootDLLFilesToMove Include="$(TargetDir)*.dll" />
     </ItemGroup>
     <ItemGroup>
-      <RootDLLCompanionFiles Include="@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).pdb');@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).xml')" />
+      <RootDLLCompanionFiles Include="@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).pdb');@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).xml');@(RootDLLFilesToMove->'%(FullPath).config')" />
       <OtherFilesToMove Include="@(RootDLLCompanionFiles)" Condition="Exists('%(FullPath)')" />
     </ItemGroup>
     <ItemGroup>
