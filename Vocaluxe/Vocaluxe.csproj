@@ -433,6 +433,10 @@
       <RootDLLFilesToMove Include="$(TargetDir)*.dll" />
     </ItemGroup>
     <ItemGroup>
+      <RootDLLCompanionFiles Include="@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).pdb');@(RootDLLFilesToMove->'%(RootDir)%(Directory)%(Filename).xml')" />
+      <OtherFilesToMove Include="@(RootDLLCompanionFiles)" Condition="Exists('%(FullPath)')" />
+    </ItemGroup>
+    <ItemGroup>
       <x64FolderFilesToMove Include="$(TargetDir)x64\*.*" />
     </ItemGroup>
     <ItemGroup>
