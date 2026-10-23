@@ -35,6 +35,9 @@ install:
         $Env:TAG_NAME_WITH_BRANCH_NAME_FALLBACK = $Env:APPVEYOR_REPO_BRANCH
     }
     choco install "opencover.portable" -y
+    choco install "nodejs-lts" -y --no-progress
+    $Env:Path += ";$Env:ProgramFiles\nodejs"
+    node --version
 before_build:
 - ps: |
     $Env:MAIN_REPO = $False
@@ -68,7 +71,7 @@ before_build:
             SonarScanner.MSBuild.exe begin `
                 /k:"Vocaluxe" `
                 /o:"vocaluxe" `
-                /d:sonar.exclusions="Vocaluxe/Website/**/*" `
+                /d:sonar.exclusions="WebApp/**/*" `
                 /d:sonar.host.url="https://sonarcloud.io" `
                 /d:sonar.token="$Env:SonarQubeToken" `
                 /d:"sonar.pullrequest.key=$env:APPVEYOR_PULL_REQUEST_NUMBER" `
@@ -80,7 +83,7 @@ before_build:
             SonarScanner.MSBuild.exe begin `
                 /k:"Vocaluxe" `
                 /o:"vocaluxe" `
-                /d:sonar.exclusions="Vocaluxe/Website/**/*" `
+                /d:sonar.exclusions="WebApp/**/*" `
                 /d:sonar.host.url="https://sonarcloud.io" `
                 /v:"$Env:GIT_VERSION_TAG" `
                 /d:sonar.token="$Env:SonarQubeToken" `

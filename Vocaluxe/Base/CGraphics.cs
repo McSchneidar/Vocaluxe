@@ -47,6 +47,14 @@ namespace Vocaluxe.Base
         public static float ZOffset { get; private set; }
 
         public static IMenu CurrentScreen { get; private set; }
+        public static EScreen CurrentScreenType
+        {
+            get
+            {
+                var id = _Screens.IndexOf(CurrentScreen);
+                return (EScreen)id;
+            }
+        }
 
         public static IMenu NextScreen { get; private set; }
         public static EScreen NextScreenType

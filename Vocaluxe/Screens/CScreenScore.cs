@@ -21,7 +21,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
 using Vocaluxe.Base;
-using Vocaluxe.Base.Server;
+using Vocaluxe.Base.Web;
 using VocaluxeLib;
 using VocaluxeLib.Game;
 using VocaluxeLib.Menu;
@@ -749,7 +749,7 @@ namespace Vocaluxe.Screens
 
         private bool _UpdateBackground()
         {
-            var photos = CVocaluxeServer.GetPhotosOfThisRound();
+            var photos = CWebServer.GetPhotosOfThisRound();
             _SlideShowBG.RemoveSlideShowTextures();
             foreach (var photo in photos)
             {
