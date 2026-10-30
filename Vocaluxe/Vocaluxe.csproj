@@ -46,7 +46,8 @@
   </ItemGroup>
   <ItemGroup Condition="'$(IsWindowsConfig)' == 'true'">
     <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
-    <PackageReference Include="Vortice.Direct3D9" Version="2.4.2" />
+    <PackageReference Include="Vortice.D3DCompiler" Version="3.8.3" />
+    <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="vocaluxe.dependencies.acinerella" Version="1.0.6" />
     <PackageReference Include="vocaluxe.dependencies.ffmpeg" Version="1.0.6" />
     <PackageReference Include="vocaluxe.dependencies.hidapi" Version="1.0.4" />
