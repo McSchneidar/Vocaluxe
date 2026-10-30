@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
-using System.Windows.Forms;
 using Vocaluxe.Base;
 using Vocaluxe.Base.Web;
 using VocaluxeLib;

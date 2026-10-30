@@ -4,10 +4,11 @@ all:
 	$(MAKE) -C PitchTracker
 	$(MAKE) -C Vocaluxe/Lib/Video/Acinerella
 	rm -f $(windowsLibs)
-	xbuild /property:Platform=$(ARCH) /property:Configuration=ReleaseLinux
+	dotnet build Vocaluxe/Vocaluxe.csproj -p:Platform=$(ARCH) -c ReleaseLinux
+	for project in PartyModes/*/*.csproj; do dotnet build $$project -c ReleaseLinux || exit 1; done
 
 clean:
-	xbuild /target:Clean
+	dotnet clean Vocaluxe/Vocaluxe.csproj -p:Platform=$(ARCH) -c ReleaseLinux
 	$(MAKE) -C PitchTracker clean
 	$(MAKE) -C Vocaluxe/Lib/Video/Acinerella clean
 	git checkout $(windowsLibs)

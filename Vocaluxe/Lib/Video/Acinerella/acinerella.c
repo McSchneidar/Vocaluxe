@@ -147,6 +147,10 @@ void init_info(lp_ac_file_info info)
 #define AC_NEED_REGISTER_ALL
 #endif
 
+#if LIBAVUTIL_VERSION_INT >= AV_VERSION_INT(57, 24, 100)
+#define AC_HAVE_CH_LAYOUT
+#endif
+
 #ifdef AC_NEED_REGISTER_ALL
 int av_initialized = 0;
 void ac_init_ffmpeg()
@@ -384,10 +388,10 @@ static void cpymetadata(const AVFormatContext *ctx, const char *key, char *tar,
 {
     const AVDictionaryEntry *entry = av_dict_get(ctx->metadata, key, NULL, 0);
     if (entry) {
-        strncpy_s(tar, len, entry->value, len-1);
+        strncpy(tar, entry->value, len - 1);
         tar[len - 1] = '\0';
     } else {
-        strncpy_s(tar, len, "", len);
+        tar[0] = '\0';
     }
 }
 
@@ -599,8 +603,13 @@ void CALL_CONVT ac_get_stream_info(lp_ac_instance pacInstance, int nb,
             // Store more information about the video stream
             info->additional_info.audio_info.samples_per_second =
                 self->pFormatCtx->streams[nb]->codecpar->sample_rate;
+#ifdef AC_HAVE_CH_LAYOUT
+            info->additional_info.audio_info.channel_count =
+                self->pFormatCtx->streams[nb]->codecpar->ch_layout.nb_channels;
+#else
             info->additional_info.audio_info.channel_count =
                 self->pFormatCtx->streams[nb]->codecpar->channels;
+#endif
 
             // Set bit depth
             switch (self->pFormatCtx->streams[nb]->codecpar->format) {
@@ -822,10 +831,19 @@ void *ac_create_audio_decoder(lp_ac_instance pacInstance,
     // from the channel count.
     const enum AVSampleFormat fmt = pDecoder->pCodecCtx->sample_fmt;
     const int rate = pDecoder->pCodecCtx->sample_rate;
+#ifdef AC_HAVE_CH_LAYOUT
+    AVChannelLayout layout;
+    if (pDecoder->pCodecCtx->ch_layout.order != AV_CHANNEL_ORDER_UNSPEC) {
+        AV_ERR(av_channel_layout_copy(&layout, &pDecoder->pCodecCtx->ch_layout));
+    } else {
+        av_channel_layout_default(&layout, pDecoder->pCodecCtx->ch_layout.nb_channels);
+    }
+#else
     const int64_t layout =
         pDecoder->pCodecCtx->channel_layout
             ? pDecoder->pCodecCtx->channel_layout
             : av_get_default_channel_layout(pDecoder->pCodecCtx->channels);
+#endif
 
     // Initialize libswresample if needed
     if (av_sample_fmt_is_planar(fmt) || (fmt == AV_SAMPLE_FMT_S32) ||
@@ -834,10 +852,22 @@ void *ac_create_audio_decoder(lp_ac_instance pacInstance,
         if (out_fmt == AV_SAMPLE_FMT_DBL || out_fmt == AV_SAMPLE_FMT_S32) {
             out_fmt = AV_SAMPLE_FMT_FLT;
         }
+#ifdef AC_HAVE_CH_LAYOUT
+        const int res = swr_alloc_set_opts2(&pDecoder->pSwrCtx, &layout, out_fmt, rate,
+                                            &layout, fmt, rate, 0, NULL);
+        av_channel_layout_uninit(&layout);
+        AV_ERR(res);
+#else
         ERR(pDecoder->pSwrCtx = swr_alloc_set_opts(NULL, layout, out_fmt, rate,
                                                layout, fmt, rate, 0, NULL));
+#endif
         AV_ERR(swr_init(pDecoder->pSwrCtx));
     }
+#ifdef AC_HAVE_CH_LAYOUT
+    else {
+        av_channel_layout_uninit(&layout);
+    }
+#endif
     return (void *)pDecoder;
 
 error:
@@ -956,7 +986,11 @@ int ac_decode_audio_package(lp_ac_package pPackage,
     const int sample_size =
         MIN(4, av_get_bytes_per_sample(pDecoder->pCodecCtx->sample_fmt));
     const int sample_count = pDecoder->pFrame->nb_samples;
+#ifdef AC_HAVE_CH_LAYOUT
+    const int channel_count = pDecoder->pFrame->ch_layout.nb_channels;
+#else
     const int channel_count = pDecoder->pFrame->channels;
+#endif
     const int buffer_size = sample_size * sample_count * channel_count;
     pDecoder->decoder.buffer_size = buffer_size;
 

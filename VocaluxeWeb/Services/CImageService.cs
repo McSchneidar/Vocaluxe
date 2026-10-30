@@ -194,7 +194,7 @@ namespace VocaluxeWeb.Services
                 canvas.Translate(rotated.Width / 2f, rotated.Height / 2f);
                 canvas.RotateDegrees(degrees);
                 canvas.Translate(-image.Width / 2f, -image.Height / 2f);
-                canvas.DrawImage(source, 0, 0);
+                canvas.DrawImage(source, 0, 0, new SKSamplingOptions(SKFilterMode.Linear));
             }
 
             image.Dispose();

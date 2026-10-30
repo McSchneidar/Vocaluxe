@@ -21,8 +21,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
 using System.Xml.Serialization;
+using Vocaluxe.Lib;
 using Vocaluxe.Lib.Sound.Record;
 using Vocaluxe.Lib.Webcam;
 using VocaluxeLib;
@@ -268,7 +268,7 @@ namespace Vocaluxe.Base
         {
 #if INSTALLER
             Path.Combine(CSettings.DataFolder, CSettings.FolderNameSongs),
-            Path.Combine(CSettings.ProgramFolder, FolderNameSongs)
+            Path.Combine(CSettings.ProgramFolder, CSettings.FolderNameSongs)
 #elif WIN
             Path.Combine(CSettings.ProgramFolder, CSettings.FolderNameSongs)
 #elif LINUX
@@ -483,8 +483,8 @@ namespace Vocaluxe.Base
                 Platform = Environment.OSVersion.Platform.ToString(),
                 OSVersion = Environment.OSVersion.ToString(),
                 ProcessorCount = Environment.ProcessorCount,
-                Screens = Screen.AllScreens.Length,
-                PrimaryScreenResolution = Screen.PrimaryScreen.Bounds.Size.ToString(),
+                Screens = CSdl.GetDisplayCount(),
+                PrimaryScreenResolution = CSdl.GetPrimaryDisplaySize().ToString(),
                 Directory = CSettings.ProgramFolder
             };
         }

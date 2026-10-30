@@ -10,7 +10,6 @@
     <SelfContained>false</SelfContained>
     <GenerateDependencyFile>false</GenerateDependencyFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>$(NoWarn);WFO1000</NoWarn>
     <RuntimeIdentifiers>win-x86;win-x64;linux-x64</RuntimeIdentifiers>
     <IsWindowsConfig>$(Configuration.EndsWith('Win'))</IsWindowsConfig>
   </PropertyGroup>
@@ -27,25 +26,29 @@
     <Compile Remove="Animations\**" />
     <Compile Remove="Base\Font\**" />
     <None Remove="Animations\**;Base\Font\**" />
-    <Compile Remove="Lib\Draw\CDirect3D.cs;Lib\Sound\Record\NAudio\CNAudioRecord.cs" Condition="'$(IsWindowsConfig)' != 'true'" />
-    <Compile Remove="Base\Web\CVocaluxeRemote.cs" Condition="'$(IsWindowsConfig)' != 'true'" />
+    <Compile Remove="Lib\Draw\CDirect3D.cs;Lib\Sound\Record\NAudio\CNAudioRecord.cs;Lib\Webcam\CAForgeNet.cs" Condition="'$(IsWindowsConfig)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.4" />
+    <PackageReference Include="OpenTK.Graphics" Version="4.9.4" />
+    <PackageReference Include="ppy.SDL3-CS" Version="2026.1002.1" />
+    <PackageReference Include="QRCoder" Version="1.8.1" />
+    <PackageReference Include="SkiaSharp" Version="4.154.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.154.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
     <PackageReference Include="System.Management" Version="10.0.14" />
-    <PackageReference Include="vocaluxe.dependencies.aforgevideo" Version="1.0.1" />
     <PackageReference Include="vocaluxe.dependencies.csharpsqlite" Version="1.0.1" />
     <PackageReference Include="vocaluxe.dependencies.gstreamersharp" Version="1.0.1" />
-    <PackageReference Include="vocaluxe.dependencies.opentk" Version="1.0.1" />
     <PackageReference Include="vocaluxe.dependencies.portaudiosharp" Version="1.0.3" />
-    <PackageReference Include="vocaluxe.dependencies.qrcoder" Version="1.0.1" />
   </ItemGroup>
   <ItemGroup Condition="'$(IsWindowsConfig)' == 'true'">
     <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.14" />
+    <PackageReference Include="vocaluxe.dependencies.aforgevideo" Version="1.0.1" />
     <PackageReference Include="Vortice.D3DCompiler" Version="3.8.3" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
     <PackageReference Include="vocaluxe.dependencies.acinerella" Version="1.0.6" />
@@ -54,8 +57,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VocaluxeLib\VocaluxeLib.csproj" />
-    <ProjectReference Include="..\VocaluxeWeb\VocaluxeWeb.csproj" Condition="'$(IsWindowsConfig)' == 'true'" />
+    <ProjectReference Include="..\VocaluxeLib\VocaluxeLib.csproj" SetPlatform="Platform=AnyCPU" />
+    <ProjectReference Include="..\VocaluxeWeb\VocaluxeWeb.csproj" SetPlatform="Platform=AnyCPU" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -81,7 +84,7 @@
     <Unzip SourceFiles="$(GstreamerZipFolder)gstreamer_$(Platform).zip" DestinationFolder="$(GstreamerTargetFolder)" Condition="'$(GstreamerDownload)' == 'true'" />
   </Target>
 
-  <Target Name="copyWebAppAfterBuild" AfterTargets="Build" Condition="'$(IsWindowsConfig)' == 'true'">
+  <Target Name="copyWebAppAfterBuild" AfterTargets="Build">
     <Message Text="copy the WebApp (built by VocaluxeWeb) to the Website folder" Importance="normal" />
     <ItemGroup>
       <WebAppFiles Include="$(ProjectDir)..\WebApp\dist\**\*" />

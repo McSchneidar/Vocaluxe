@@ -18,12 +18,12 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
+using SDL;
 using SharpGen.Runtime;
+using SkiaSharp;
 using Vortice.D3DCompiler;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -40,35 +40,6 @@ using Size = System.Drawing.Size;
 
 namespace Vocaluxe.Lib.Draw
 {
-    class CRenderFormHook : Form, IFormHook
-    {
-        private const int _WmMenuChar = 0x0120;
-        private const int _MncClose = 1;
-
-        public MessageEventHandler OnMessage { private get; set; }
-
-        public CRenderFormHook()
-        {
-            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.Opaque, true);
-        }
-
-        protected override void OnPaintBackground(PaintEventArgs e) { }
-
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == _WmMenuChar)
-            {
-                m.Result = new IntPtr(_MncClose << 16);
-                return;
-            }
-
-            if (OnMessage == null || OnMessage(ref m))
-            {
-                base.WndProc(ref m);
-            }
-        }
-    }
-
     class CD3DTexture : CTextureBase
     {
         public readonly ID3D11Texture2D D3DTexture;
@@ -108,7 +79,7 @@ namespace Vocaluxe.Lib.Draw
         }
     }
 
-    class CDirect3D : CDrawBaseWindows<CD3DTexture>, IDraw
+    unsafe class CDirect3D : CDrawBaseSDL<CD3DTexture>, IDraw
     {
         private const Format _BackBufferFormat = Format.B8G8R8A8_UNorm;
         private const string _Shader = @"
@@ -185,7 +156,10 @@ float4 PS(SPixel input) : SV_TARGET
         /// </summary>
         public CDirect3D()
         {
-            _Form = new CRenderFormHook { ClientSize = new Size(CConfig.Config.Graphics.ScreenW * CConfig.Config.Graphics.NumScreens, CConfig.Config.Graphics.ScreenH) };
+            if (!_CreateWindow(0))
+            {
+                return;
+            }
 
             try
             {
@@ -208,18 +182,6 @@ float4 PS(SPixel input) : SV_TARGET
             {
                 _TearingSupported = factory5 != null && factory5.PresentAllowTearing;
             }
-
-            _Form.KeyDown += _OnKeyDown;
-            _Form.PreviewKeyDown += _OnPreviewKeyDown;
-            _Form.KeyPress += _OnKeyPress;
-            _Form.KeyUp += _OnKeyUp;
-
-            _Form.MouseMove += _OnMouseMove;
-            _Form.MouseWheel += _OnMouseWheel;
-            _Form.MouseDown += _OnMouseDown;
-            _Form.MouseUp += _OnMouseUp;
-            _Form.MouseLeave += _OnMouseLeave;
-            _Form.MouseEnter += _OnMouseEnter;
 
             //Apply antialiasing and check if antialiasing mode is supported
             #region Antialiasing
@@ -268,20 +230,22 @@ float4 PS(SPixel input) : SV_TARGET
         /// </summary>
         protected override void _DoResize()
         {
-            // The window was minimized, so restore it to the last known size
-            if (_Form.ClientSize.Width == 0 || _Form.ClientSize.Height == 0)
+            var clientSize = _GetClientSize();
+
+            // The window was minimized, so keep the last known size
+            if (clientSize.Width == 0 || clientSize.Height == 0)
             {
-                _Form.ClientSize = _SizeBeforeMinimize;
+                return;
             }
 
-            if (_H == _Form.ClientSize.Height && _W == _Form.ClientSize.Width && CConfig.Config.Graphics.ScreenAlignment == _CurrentAlignment)
+            if (_H == clientSize.Height && _W == clientSize.Width && CConfig.Config.Graphics.ScreenAlignment == _CurrentAlignment)
             {
                 return;
             }
 
             _CurrentAlignment = CConfig.Config.Graphics.ScreenAlignment;
-            _H = _Form.ClientSize.Height;
-            _W = _Form.ClientSize.Width;
+            _H = clientSize.Height;
+            _W = clientSize.Width;
             _X = 0;
             _Y = 0;
 
@@ -292,11 +256,8 @@ float4 PS(SPixel input) : SV_TARGET
 
             if (_SwapChain != null)
             {
-                _CreateSizeDependentResources(_Form.ClientSize.Width, _Form.ClientSize.Height);
+                _CreateSizeDependentResources(clientSize.Width, clientSize.Height);
             }
-
-            //Store size so it can get restored after the window gets minimized
-            _SizeBeforeMinimize = _Form.ClientSize;
         }
 
         // ReSharper disable RedundantOverridenMember
@@ -348,10 +309,12 @@ float4 PS(SPixel input) : SV_TARGET
 
         private void _InitDevice()
         {
+            var clientSize = _GetClientSize();
+            var hwnd = SDL3.SDL_GetPointerProperty(SDL3.SDL_GetWindowProperties(_Window), SDL3.SDL_PROP_WINDOW_WIN32_HWND_POINTER, IntPtr.Zero);
             var description = new SwapChainDescription1
             {
-                Width = (uint)_Form.ClientSize.Width,
-                Height = (uint)_Form.ClientSize.Height,
+                Width = (uint)clientSize.Width,
+                Height = (uint)clientSize.Height,
                 Format = _BackBufferFormat,
                 SampleDescription = new SampleDescription(1, 0),
                 BufferUsage = Usage.RenderTargetOutput,
@@ -361,9 +324,9 @@ float4 PS(SPixel input) : SV_TARGET
                 AlphaMode = AlphaMode.Ignore,
                 Flags = _SwapChainFlags
             };
-            _SwapChain = _Factory.CreateSwapChainForHwnd(_Device, _Form.Handle, description);
-            _Factory.MakeWindowAssociation(_Form.Handle, WindowAssociationFlags.IgnoreAltEnter);
-            _CreateSizeDependentResources(_Form.ClientSize.Width, _Form.ClientSize.Height);
+            _SwapChain = _Factory.CreateSwapChainForHwnd(_Device, hwnd, description);
+            _Factory.MakeWindowAssociation(hwnd, WindowAssociationFlags.IgnoreAltEnter);
+            _CreateSizeDependentResources(clientSize.Width, clientSize.Height);
 
             var vertexShader = _CompileShader("VS", "vs_4_0");
             var pixelShader = _CompileShader("PS", "ps_4_0");
@@ -510,7 +473,7 @@ float4 PS(SPixel input) : SV_TARGET
                 }
             }
 
-            Application.DoEvents();
+            _HandleEvents();
         }
 
         private void _ResolveRenderTarget()
@@ -535,7 +498,7 @@ float4 PS(SPixel input) : SV_TARGET
                 -dy - _BorderBottom, dy + _BorderTop,
                 CSettings.ZNear, CSettings.ZFar);
 
-            _Context.UpdateSubresource(ref projection, _ConstantBuffer);
+            _Context.UpdateSubresource(in projection, _ConstantBuffer);
         }
 
         private static Matrix4x4 _CreateOrthoOffCenterLH(float left, float right, float bottom, float top, float zNear, float zFar)
@@ -709,9 +672,6 @@ float4 PS(SPixel input) : SV_TARGET
             _Context.ClearDepthStencilView(_DepthStencilView, DepthStencilClearFlags.Depth, 1.0f, 0);
         }
 
-        /// <summary>
-        ///     Draws all pending quads and returns a texture that is not multisampled and holds the current frame
-        /// </summary>
         private ID3D11Texture2D _GetCurrentFrame()
         {
             _RenderVertexBuffer();
@@ -827,22 +787,17 @@ float4 PS(SPixel input) : SV_TARGET
                 return;
             }
 
-            using (var screen = new Bitmap(width, height, PixelFormat.Format32bppArgb))
+            using (var screen = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque)))
             {
-                var bmpData = screen.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly, PixelFormat.Format32bppArgb);
-                try
+                for (var y = 0; y < height; y++)
                 {
-                    for (var y = 0; y < height; y++)
-                    {
-                        Marshal.Copy(pixels, y * width, IntPtr.Add(bmpData.Scan0, y * bmpData.Stride), width);
-                    }
-                }
-                finally
-                {
-                    screen.UnlockBits(bmpData);
+                    Marshal.Copy(pixels, y * width, IntPtr.Add(screen.GetPixels(), y * screen.RowBytes), width);
                 }
 
-                screen.Save(file, ImageFormat.Png);
+                using (var stream = File.Create(file))
+                {
+                    screen.Encode(stream, SKEncodedImageFormat.Png, 100);
+                }
             }
         }
 
