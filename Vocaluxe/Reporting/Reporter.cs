@@ -18,6 +18,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -41,6 +42,10 @@ namespace Vocaluxe.Reporting
         private string _GistAndIssueText = "Upload and open an issue (publicly visible + requires a github account)";
         private string _GistOnlyText = "Upload and get a link to your report (publicly visible)";
         private string _OpenLogText = "Open the log to check or edit it";
+        private string _NoUploadButtonText = "Don't upload";
+        private string _GistAndIssueButtonText = "Upload + issue";
+        private string _GistOnlyButtonText = "Upload";
+        private string _OpenLogButtonText = "Open log";
         private string _SubmitStep0Text = "Submit";
         private string _SubmitStep1Text = "Uploading";
         private string _SubmitStep2ExitText = "Exit";
@@ -111,6 +116,10 @@ namespace Vocaluxe.Reporting
                 _GistAndIssueText = CLanguage.Translate("TR_REPORTER_GIST_AND_ISSUE_TEXT");
                 _GistOnlyText = CLanguage.Translate("TR_REPORTER_GIST_ONLY_TEXT");
                 _OpenLogText = CLanguage.Translate("TR_REPORTER_OPEN_LOG_TEXT");
+                _NoUploadButtonText = CLanguage.Translate("TR_REPORTER_NO_UPLOAD_BUTTON");
+                _GistAndIssueButtonText = CLanguage.Translate("TR_REPORTER_GIST_AND_ISSUE_BUTTON");
+                _GistOnlyButtonText = CLanguage.Translate("TR_REPORTER_GIST_ONLY_BUTTON");
+                _OpenLogButtonText = CLanguage.Translate("TR_REPORTER_OPEN_LOG_BUTTON");
                 _SubmitStep0Text = CLanguage.Translate("TR_REPORTER_SUBMIT_STEP0_TEXT");
                 _SubmitStep1Text = CLanguage.Translate("TR_REPORTER_SUBMIT_STEP1_TEXT");
                 _SubmitStep2ExitText = CLanguage.Translate("TR_REPORTER_SUBMIT_STEP2_EXIT_TEXT");
@@ -146,24 +155,42 @@ namespace Vocaluxe.Reporting
 
         private void _Show()
         {
-            var message = (_Crash ? _MessageCrashText : _MessageNoCrashText).Replace("\r\n", "\n") + "\n\n" + _LastErrorTitleText + ":\n" + _LastError;
+            const int gistOnly = 0;
+            const int gistAndIssue = 1;
+            const int openLog = 2;
+            const int noUpload = 3;
+            var options = new List<int> { gistOnly, gistAndIssue };
+            if (_LogFile != null)
+            {
+                options.Add(openLog);
+            }
+
+            options.Add(noUpload);
+            var buttonTexts = new[] { _GistOnlyButtonText, _GistAndIssueButtonText, _OpenLogButtonText, _NoUploadButtonText };
+            var descriptions = new[] { _GistOnlyText, _GistAndIssueText, _OpenLogText, _NoUploadText };
+
+            var message = (_Crash ? _MessageCrashText : _MessageNoCrashText).Replace("\r\n", "\n") + "\n\n" + _LastErrorTitleText + ":\n" + _LastError + "\n";
+            foreach (var option in options)
+            {
+                message += "\n" + buttonTexts[option] + ": " + descriptions[option];
+            }
+
             while (true)
             {
-                var buttons = _LogFile != null ? new[] { _GistOnlyText, _GistAndIssueText, _OpenLogText, _NoUploadText } : new[] { _GistOnlyText, _GistAndIssueText, _NoUploadText };
-                var selected = CSdl.ShowMessage(_TitleText, message, true, buttons);
-                if (selected < 0 || buttons[selected] == _NoUploadText)
+                var selected = CSdl.ShowMessage(_TitleText, message, true, options.Select(option => buttonTexts[option]).ToArray());
+                if (selected < 0 || options[selected] == noUpload)
                 {
                     return;
                 }
 
-                if (buttons[selected] == _OpenLogText)
+                if (options[selected] == openLog)
                 {
                     CSdl.OpenUrl(new Uri(_LogFile).AbsoluteUri);
                     continue;
                 }
 
                 var log = _ReadLog();
-                var url = buttons[selected] == _GistAndIssueText ? _StartIssueUpload(log, _LastError) : _UploadLogToGist(log, _LastError).GetAwaiter().GetResult();
+                var url = options[selected] == gistAndIssue ? _StartIssueUpload(log, _LastError) : _UploadLogToGist(log, _LastError).GetAwaiter().GetResult();
                 _UploadFinished(url);
                 return;
             }

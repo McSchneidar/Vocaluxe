@@ -395,6 +395,10 @@
   <string name="TR_REPORTER_GIST_AND_ISSUE_TEXT">Upload and open an issue (publicly visible + requires a github account)</string>
   <string name="TR_REPORTER_GIST_ONLY_TEXT">Upload and get a link to your report (publicly visible)</string>
   <string name="TR_REPORTER_OPEN_LOG_TEXT">Open the log to check or edit it</string>
+  <string name="TR_REPORTER_NO_UPLOAD_BUTTON">Don't upload</string>
+  <string name="TR_REPORTER_GIST_AND_ISSUE_BUTTON">Upload + issue</string>
+  <string name="TR_REPORTER_GIST_ONLY_BUTTON">Upload</string>
+  <string name="TR_REPORTER_OPEN_LOG_BUTTON">Open log</string>
   <string name="TR_REPORTER_SUBMIT_STEP0_TEXT">Submit</string>
   <string name="TR_REPORTER_SUBMIT_STEP1_TEXT">Uploading</string>
   <string name="TR_REPORTER_SUBMIT_STEP2_EXIT_TEXT">Exit</string>
