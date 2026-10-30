@@ -47,6 +47,7 @@ namespace Vocaluxe.Lib.Draw
     {
         //The texture "name" according to the specs
         public readonly int Name;
+        public int[] Planes;
 
         public COGLTexture(int name, Size dataSize, int texWidth = 0, int texHeight = 0) : base(dataSize, new Size(texWidth, texHeight))
         {
@@ -81,6 +82,11 @@ namespace Vocaluxe.Lib.Draw
             }
 
             base.Dispose();
+            if (Planes != null)
+            {
+                GL.DeleteTextures(Planes.Length, Planes);
+            }
+
             if (Name != 0)
             {
                 GL.DeleteTexture(Name);
@@ -103,6 +109,27 @@ void main()
     vTexCoord = TexCoord;
     vColor = Color.bgra;
 }";
+        private const string _YuvVertexShaderSource = @"#version 330 core
+void main()
+{
+    vec2 position = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+    gl_Position = vec4(position * 2.0 - 1.0, 0.0, 1.0);
+}";
+        private const string _YuvFragmentShaderSource = @"#version 330 core
+uniform sampler2D TexY;
+uniform sampler2D TexU;
+uniform sampler2D TexV;
+uniform vec4 RowR;
+uniform vec4 RowG;
+uniform vec4 RowB;
+uniform vec2 Size;
+out vec4 FragColor;
+void main()
+{
+    vec2 uv = gl_FragCoord.xy / Size;
+    vec4 yuv = vec4(texture(TexY, uv).r, texture(TexU, uv).r, texture(TexV, uv).r, 1.0);
+    FragColor = vec4(clamp(dot(RowR, yuv), 0.0, 1.0), clamp(dot(RowG, yuv), 0.0, 1.0), clamp(dot(RowB, yuv), 0.0, 1.0), 1.0);
+}";
         private const string _FragmentShaderSource = @"#version 330 core
 uniform sampler2D Tex;
 in vec2 vTexCoord;
@@ -119,6 +146,7 @@ void main()
         private int _ResolveTexture;
         private Size _ResolveSize;
         private int _Program;
+        private int _YuvProgram;
         private int _ProjectionLocation;
         private int _VertexArray;
         private int _VertexBuffer;
@@ -210,12 +238,26 @@ void main()
 
             try
             {
-                _Program = _CreateProgram();
+                _Program = _CreateProgram(_VertexShaderSource, _FragmentShaderSource);
             }
             catch (Exception e)
             {
                 CLog.Error(e, "Error during OpenGL initialization.");
                 return false;
+            }
+
+            try
+            {
+                _YuvProgram = _CreateProgram(_YuvVertexShaderSource, _YuvFragmentShaderSource);
+                GL.UseProgram(_YuvProgram);
+                GL.Uniform1(GL.GetUniformLocation(_YuvProgram, "TexY"), 0);
+                GL.Uniform1(GL.GetUniformLocation(_YuvProgram, "TexU"), 1);
+                GL.Uniform1(GL.GetUniformLocation(_YuvProgram, "TexV"), 2);
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "[OpenGL] Unable to compile the YUV shader, using CPU conversion for videos");
+                _YuvProgram = 0;
             }
 
             _ProjectionLocation = GL.GetUniformLocation(_Program, "Projection");
@@ -268,10 +310,10 @@ void main()
             return true;
         }
 
-        private static int _CreateProgram()
+        private static int _CreateProgram(string vertexShaderSource, string fragmentShaderSource)
         {
-            var vertexShader = _CompileShader(ShaderType.VertexShader, _VertexShaderSource);
-            var fragmentShader = _CompileShader(ShaderType.FragmentShader, _FragmentShaderSource);
+            var vertexShader = _CompileShader(ShaderType.VertexShader, vertexShaderSource);
+            var fragmentShader = _CompileShader(ShaderType.FragmentShader, fragmentShaderSource);
             var program = GL.CreateProgram();
             GL.AttachShader(program, vertexShader);
             GL.AttachShader(program, fragmentShader);
@@ -324,6 +366,10 @@ void main()
             GL.DeleteBuffer(_IndexBuffer);
             GL.DeleteVertexArray(_VertexArray);
             GL.DeleteProgram(_Program);
+            if (_YuvProgram != 0)
+            {
+                GL.DeleteProgram(_YuvProgram);
+            }
             SDL3.SDL_GL_DestroyContext(_Context);
         }
 
@@ -497,6 +543,84 @@ void main()
             GL.Clear(ClearBufferMask.ColorBufferBit);
             GL.ClearColor(0f, 0f, 0f, 1f);
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        }
+
+        public override bool SupportsYuvVideo
+        {
+            get { return _YuvProgram != 0; }
+        }
+
+        protected override void _WriteYuvDataToTexture(COGLTexture texture, byte[] data, float[] yuvToRgbRows)
+        {
+            if (!texture.IsLoaded)
+            {
+                return;
+            }
+
+            var width = texture.DataSize.Width;
+            var height = texture.DataSize.Height;
+            var planeWidths = new[] { width, (width + 1) / 2, (width + 1) / 2 };
+            var planeHeights = new[] { height, (height + 1) / 2, (height + 1) / 2 };
+            if (texture.Planes == null)
+            {
+                texture.Planes = new int[3];
+                GL.GenTextures(3, texture.Planes);
+                for (var i = 0; i < 3; i++)
+                {
+                    GL.BindTexture(TextureTarget.Texture2D, texture.Planes[i]);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.R8, planeWidths[i], planeHeights[i], 0, PixelFormat.Red, PixelType.UnsignedByte, IntPtr.Zero);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                }
+            }
+
+            fixed (byte* source = data)
+            {
+                var offset = 0;
+                for (var i = 0; i < 3; i++)
+                {
+                    GL.BindTexture(TextureTarget.Texture2D, texture.Planes[i]);
+                    GL.TexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, planeWidths[i], planeHeights[i], PixelFormat.Red, PixelType.UnsignedByte, (IntPtr)(source + offset));
+                    offset += planeWidths[i] * planeHeights[i];
+                }
+            }
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _FBO);
+            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, texture.Name, 0);
+            GL.Viewport(0, 0, width, height);
+            GL.Disable(EnableCap.Blend);
+            GL.Disable(EnableCap.DepthTest);
+            GL.UseProgram(_YuvProgram);
+            GL.Uniform4(GL.GetUniformLocation(_YuvProgram, "RowR"), yuvToRgbRows[0], yuvToRgbRows[1], yuvToRgbRows[2], yuvToRgbRows[3]);
+            GL.Uniform4(GL.GetUniformLocation(_YuvProgram, "RowG"), yuvToRgbRows[4], yuvToRgbRows[5], yuvToRgbRows[6], yuvToRgbRows[7]);
+            GL.Uniform4(GL.GetUniformLocation(_YuvProgram, "RowB"), yuvToRgbRows[8], yuvToRgbRows[9], yuvToRgbRows[10], yuvToRgbRows[11]);
+            GL.Uniform2(GL.GetUniformLocation(_YuvProgram, "Size"), (float)width, height);
+            for (var i = 0; i < 3; i++)
+            {
+                GL.ActiveTexture(TextureUnit.Texture0 + i);
+                GL.BindTexture(TextureTarget.Texture2D, texture.Planes[i]);
+            }
+
+            GL.BindVertexArray(_VertexArray);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 3);
+
+            for (var i = 2; i >= 0; i--)
+            {
+                GL.ActiveTexture(TextureUnit.Texture0 + i);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+            }
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GL.Viewport(_X, _Y, _W, _H);
+            GL.Enable(EnableCap.Blend);
+            GL.Enable(EnableCap.DepthTest);
+            GL.UseProgram(_Program);
+
+            GL.BindTexture(TextureTarget.Texture2D, texture.Name);
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
         }
 
         protected override void _WriteDataToTexture(COGLTexture texture, byte[] data)

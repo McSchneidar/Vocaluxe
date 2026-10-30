@@ -47,6 +47,8 @@ namespace Vocaluxe.Lib.Draw
         CTextureRef EnqueueTexture(int w, int h, byte[] data);
         void EnqueueTextureUpdate(CTextureRef textureRef, SKBitmap bmp);
         CTextureRef CopyTexture(CTextureRef textureRef);
+        bool SupportsYuvVideo { get; }
+        void UpdateYuvTexture(ref CTextureRef textureRef, int w, int h, byte[] data, float[] yuvToRgbRows);
         void RemoveTexture(ref CTextureRef texture);
 
         // Basic Draw Methods

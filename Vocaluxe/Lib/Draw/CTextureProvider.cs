@@ -950,6 +950,37 @@ namespace Vocaluxe.Lib.Draw
             }
         }
 
+        public virtual bool SupportsYuvVideo
+        {
+            get { return false; }
+        }
+
+        protected virtual void _WriteYuvDataToTexture(TTextureType texture, byte[] data, float[] yuvToRgbRows)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void UpdateYuvTexture(ref CTextureRef textureRef, int w, int h, byte[] data, float[] yuvToRgbRows)
+        {
+            _EnsureMainThread();
+            var size = new Size(w, h);
+            TTextureType texture;
+            if (_GetTexture(textureRef, out texture) && texture.DataSize.Equals(size) && texture.Size.Equals(size))
+            {
+                _WriteYuvDataToTexture(texture, data, yuvToRgbRows);
+                return;
+            }
+
+            if (textureRef != null)
+            {
+                RemoveTexture(ref textureRef);
+            }
+
+            texture = _CreateTexture(size);
+            _WriteYuvDataToTexture(texture, data, yuvToRgbRows);
+            textureRef = _GetTextureReference(size, texture);
+        }
+
         public CTextureRef CopyTexture(CTextureRef textureRef)
         {
             // Lock to make sure the texture is not disposed while we are in this method

@@ -47,6 +47,9 @@ namespace Vocaluxe.Lib.Draw
         public readonly ID3D11Texture2D D3DTexture;
         public readonly ID3D11ShaderResourceView View;
         public readonly bool HasMips;
+        public ID3D11Texture2D[] Planes;
+        public ID3D11ShaderResourceView[] PlaneViews;
+        public ID3D11RenderTargetView TargetView;
 
         public CD3DTexture(ID3D11Device device, Size dataSize, int texWidth = 0, int texHeight = 0) : base(dataSize, new Size(texWidth, texHeight))
         {
@@ -57,7 +60,7 @@ namespace Vocaluxe.Lib.Draw
 
             HasMips = texWidth < 1280 && texHeight < 720;
             var description = new Texture2DDescription(Format.B8G8R8A8_UNorm, (uint)texWidth, (uint)texHeight, 1, HasMips ? 0u : 1u,
-                HasMips ? BindFlags.ShaderResource | BindFlags.RenderTarget : BindFlags.ShaderResource, ResourceUsage.Default, CpuAccessFlags.None, 1, 0,
+                BindFlags.ShaderResource | BindFlags.RenderTarget, ResourceUsage.Default, CpuAccessFlags.None, 1, 0,
                 HasMips ? ResourceOptionFlags.GenerateMips : ResourceOptionFlags.None);
             D3DTexture = device.CreateTexture2D(description);
             View = device.CreateShaderResourceView(D3DTexture);
@@ -76,6 +79,16 @@ namespace Vocaluxe.Lib.Draw
             }
 
             base.Dispose();
+            TargetView?.Dispose();
+            if (Planes != null)
+            {
+                for (var i = 0; i < Planes.Length; i++)
+                {
+                    PlaneViews[i]?.Dispose();
+                    Planes[i]?.Dispose();
+                }
+            }
+
             View?.Dispose();
             D3DTexture?.Dispose();
         }
@@ -84,6 +97,32 @@ namespace Vocaluxe.Lib.Draw
     unsafe class CDirect3D : CDrawBaseSDL<CD3DTexture>, IDraw
     {
         private const Format _BackBufferFormat = Format.B8G8R8A8_UNorm;
+        private const string _YuvShader = @"
+cbuffer CYuv : register(b0)
+{
+    float4 RowR;
+    float4 RowG;
+    float4 RowB;
+    float4 Size;
+};
+
+Texture2D TexY : register(t0);
+Texture2D TexU : register(t1);
+Texture2D TexV : register(t2);
+SamplerState Sampler : register(s0);
+
+float4 VS(uint id : SV_VertexID) : SV_POSITION
+{
+    float2 position = float2((id << 1) & 2, id & 2);
+    return float4(position * float2(2, -2) + float2(-1, 1), 0, 1);
+}
+
+float4 PS(float4 position : SV_POSITION) : SV_TARGET
+{
+    float2 uv = position.xy / Size.xy;
+    float4 yuv = float4(TexY.Sample(Sampler, uv).r, TexU.Sample(Sampler, uv).r, TexV.Sample(Sampler, uv).r, 1);
+    return float4(saturate(dot(RowR, yuv)), saturate(dot(RowG, yuv)), saturate(dot(RowB, yuv)), 1);
+}";
         private const string _Shader = @"
 cbuffer CTransform : register(b0)
 {
@@ -148,6 +187,9 @@ float4 PS(SPixel input) : SV_TARGET
         private ID3D11DepthStencilState _DepthStencilState;
         private ID3D11RasterizerState _RasterizerState;
         private ID3D11SamplerState _SamplerState;
+        private ID3D11VertexShader _YuvVertexShader;
+        private ID3D11PixelShader _YuvPixelShader;
+        private ID3D11Buffer _YuvConstantBuffer;
 
         private CTextureRef _BlankTexture;
 
@@ -337,8 +379,8 @@ float4 PS(SPixel input) : SV_TARGET
             _Factory.MakeWindowAssociation(hwnd, WindowAssociationFlags.IgnoreAltEnter);
             _CreateSizeDependentResources(clientSize.Width, clientSize.Height);
 
-            var vertexShader = _CompileShader("VS", "vs_4_0");
-            var pixelShader = _CompileShader("PS", "ps_4_0");
+            var vertexShader = _CompileShader(_Shader, "VS", "vs_4_0");
+            var pixelShader = _CompileShader(_Shader, "PS", "ps_4_0");
             _VertexShader = _Device.CreateVertexShader(vertexShader);
             _PixelShader = _Device.CreatePixelShader(pixelShader);
             _InputLayout = _Device.CreateInputLayout(new[]
@@ -373,6 +415,19 @@ float4 PS(SPixel input) : SV_TARGET
             _RasterizerState = _Device.CreateRasterizerState(new RasterizerDescription(CullMode.None, FillMode.Solid) { DepthClipEnable = true, MultisampleEnable = _SampleCount > 1 });
             _SamplerState = _Device.CreateSamplerState(new SamplerDescription(Filter.MinMagMipLinear, TextureAddressMode.Clamp, 0, 1, ComparisonFunction.Never, 0, float.MaxValue));
 
+            try
+            {
+                _YuvVertexShader = _Device.CreateVertexShader(_CompileShader(_YuvShader, "VS", "vs_4_0"));
+                _YuvPixelShader = _Device.CreatePixelShader(_CompileShader(_YuvShader, "PS", "ps_4_0"));
+                _YuvConstantBuffer = _Device.CreateBuffer(16 * sizeof(float), BindFlags.ConstantBuffer, ResourceUsage.Default, CpuAccessFlags.None, ResourceOptionFlags.None, 0);
+            }
+            catch (Exception e)
+            {
+                CLog.Error(e, "[Direct3D] Unable to compile the YUV shader, using CPU conversion for videos");
+                _YuvPixelShader?.Dispose();
+                _YuvPixelShader = null;
+            }
+
             _AdjustNewBorders();
         }
 
@@ -381,12 +436,12 @@ float4 PS(SPixel input) : SV_TARGET
             get { return SwapChainFlags.FrameLatencyWaitableObject | (_TearingSupported ? SwapChainFlags.AllowTearing : SwapChainFlags.None); }
         }
 
-        private static byte[] _CompileShader(string entryPoint, string profile)
+        private static byte[] _CompileShader(string source, string entryPoint, string profile)
         {
             Blob code = null, errors = null;
             try
             {
-                var result = Compiler.Compile(_Shader, entryPoint, "Vocaluxe", profile, out code, out errors);
+                var result = Compiler.Compile(source, entryPoint, "Vocaluxe", profile, out code, out errors);
                 if (result.Failure)
                 {
                     throw new Exception("Shader compilation failed: " + (errors != null ? errors.AsString() : result.ToString()));
@@ -448,6 +503,11 @@ float4 PS(SPixel input) : SV_TARGET
         protected override void _OnBeforeDraw()
         {
             _FrameLatencyWaitHandle?.WaitOne(1000);
+            _ApplyPipeline();
+        }
+
+        private void _ApplyPipeline()
+        {
             _Context.OMSetRenderTargets(_RenderTargetView, _DepthStencilView);
             _Context.RSSetViewport(new Viewport(_X, _Y, _W, _H, 0f, 1f));
             _Context.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
@@ -529,6 +589,9 @@ float4 PS(SPixel input) : SV_TARGET
             base.Close();
             _Context?.ClearState();
             _DisposeSizeDependentResources();
+            _YuvConstantBuffer?.Dispose();
+            _YuvPixelShader?.Dispose();
+            _YuvVertexShader?.Dispose();
             _SamplerState?.Dispose();
             _RasterizerState?.Dispose();
             _DepthStencilState?.Dispose();
@@ -842,6 +905,74 @@ float4 PS(SPixel input) : SV_TARGET
             }
 
             return new CD3DTexture(_Device, dataSize, _CheckForNextPowerOf2(dataSize.Width), _CheckForNextPowerOf2(dataSize.Height));
+        }
+
+        public override bool SupportsYuvVideo
+        {
+            get { return _YuvPixelShader != null; }
+        }
+
+        protected override void _WriteYuvDataToTexture(CD3DTexture texture, byte[] data, float[] yuvToRgbRows)
+        {
+            if (!texture.IsLoaded)
+            {
+                return;
+            }
+
+            var width = texture.DataSize.Width;
+            var height = texture.DataSize.Height;
+            var planeWidths = new[] { width, (width + 1) / 2, (width + 1) / 2 };
+            var planeHeights = new[] { height, (height + 1) / 2, (height + 1) / 2 };
+            if (texture.Planes == null)
+            {
+                texture.Planes = new ID3D11Texture2D[3];
+                texture.PlaneViews = new ID3D11ShaderResourceView[3];
+                for (var i = 0; i < 3; i++)
+                {
+                    texture.Planes[i] = _Device.CreateTexture2D(new Texture2DDescription(Format.R8_UNorm, (uint)planeWidths[i], (uint)planeHeights[i], 1, 1,
+                        BindFlags.ShaderResource, ResourceUsage.Default, CpuAccessFlags.None, 1, 0, ResourceOptionFlags.None));
+                    texture.PlaneViews[i] = _Device.CreateShaderResourceView(texture.Planes[i]);
+                }
+
+                texture.TargetView = _Device.CreateRenderTargetView(texture.D3DTexture,
+                    new RenderTargetViewDescription(RenderTargetViewDimension.Texture2D, Format.B8G8R8A8_UNorm, 0));
+            }
+
+            fixed (byte* source = data)
+            {
+                var offset = 0;
+                for (var i = 0; i < 3; i++)
+                {
+                    _Context.UpdateSubresource(texture.Planes[i], 0, null, (IntPtr)(source + offset), (uint)planeWidths[i], 0);
+                    offset += planeWidths[i] * planeHeights[i];
+                }
+            }
+
+            var constants = new float[16];
+            Array.Copy(yuvToRgbRows, constants, 12);
+            constants[12] = width;
+            constants[13] = height;
+            _Context.UpdateSubresource(constants, _YuvConstantBuffer);
+
+            _Context.OMSetRenderTargets(texture.TargetView, null);
+            _Context.RSSetViewport(new Viewport(0, 0, width, height, 0f, 1f));
+            _Context.IASetInputLayout(null);
+            _Context.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
+            _Context.VSSetShader(_YuvVertexShader);
+            _Context.PSSetShader(_YuvPixelShader);
+            _Context.PSSetConstantBuffer(0, _YuvConstantBuffer);
+            _Context.PSSetShaderResources(0, texture.PlaneViews);
+            _Context.PSSetSampler(0, _SamplerState);
+            _Context.OMSetBlendState(null);
+            _Context.OMSetDepthStencilState(null, 0);
+            _Context.Draw(3, 0);
+            _Context.PSSetShaderResources(0, new ID3D11ShaderResourceView[3]);
+            if (texture.HasMips)
+            {
+                _Context.GenerateMips(texture.View);
+            }
+
+            _ApplyPipeline();
         }
 
         protected override void _WriteDataToTexture(CD3DTexture texture, byte[] data)

@@ -313,6 +313,16 @@ namespace Vocaluxe.Base
             _Draw.UpdateTexture(textureRef, w, h, data);
         }
 
+        public static bool SupportsYuvVideo
+        {
+            get { return _Draw != null && _Draw.SupportsYuvVideo; }
+        }
+
+        public static void UpdateYuvTexture(ref CTextureRef textureRef, int w, int h, byte[] data, float[] yuvToRgbRows)
+        {
+            _Draw.UpdateYuvTexture(ref textureRef, w, h, data, yuvToRgbRows);
+        }
+
         /// <summary>
         ///     Updates a texture, filling it with the new data from the bitmap
         /// </summary>

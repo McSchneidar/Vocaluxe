@@ -76,7 +76,13 @@ namespace Vocaluxe.Lib.Video.FFmpeg
             _FileName = fileName;
             try
             {
-                _Decoder = new CFFmpegDecoder(EFFmpegStreamType.Video) { HardwareDecoding = CConfig.Config.Video.HardwareDecoding == EOffOn.TR_CONFIG_ON };
+                _Decoder = new CFFmpegDecoder(EFFmpegStreamType.Video)
+                {
+                    HardwareDecoding = CConfig.Config.Video.HardwareDecoding == EOffOn.TR_CONFIG_ON,
+                    OutputYuv = CConfig.Config.Video.GpuColorConversion == EOffOn.TR_CONFIG_ON && CDraw.SupportsYuvVideo,
+                    DecoderThreads = CConfig.Config.Video.DecoderThreads,
+                    MaxHeight = (int)CConfig.Config.Video.VideoDownscaleResolution
+                };
                 var opened = _Decoder.Open(fileName);
 
                 Length = _Decoder.Length;
@@ -231,7 +237,11 @@ namespace Vocaluxe.Lib.Video.FFmpeg
                 var curFrame = _FindFrame(time);
                 if (curFrame != null)
                 {
-                    if (frame == null)
+                    if (_Decoder.OutputYuv)
+                    {
+                        CDraw.UpdateYuvTexture(ref frame, _Width, _Height, curFrame.Data, _Decoder.YuvToRgbRows);
+                    }
+                    else if (frame == null)
                     {
                         frame = CDraw.AddTexture(_Width, _Height, curFrame.Data);
                     }
@@ -320,7 +330,7 @@ namespace Vocaluxe.Lib.Video.FFmpeg
                 _FrameDuration = 1f / (float)_Decoder.FramesPerSecond;
             }
 
-            _Framebuffer.Init(_Width * _Height * 4);
+            _Framebuffer.Init(_Decoder.BufferSize);
             _FrameAvailable = false;
             return true;
         }
