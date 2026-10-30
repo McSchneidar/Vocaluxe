@@ -30,6 +30,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FFmpeg.AutoGen.Abstractions" Version="8.1.0" />
+    <PackageReference Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.1.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.14" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
@@ -49,8 +51,6 @@
     <PackageReference Include="vocaluxe.dependencies.aforgevideo" Version="1.0.1" />
     <PackageReference Include="Vortice.D3DCompiler" Version="3.8.3" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.8.3" />
-    <PackageReference Include="vocaluxe.dependencies.acinerella" Version="1.0.6" />
-    <PackageReference Include="vocaluxe.dependencies.ffmpeg" Version="1.0.6" />
     <PackageReference Include="vocaluxe.dependencies.hidapi" Version="1.0.4" />
   </ItemGroup>
 
@@ -80,6 +80,26 @@
     <Message Text="gstreamer is missing - download started: $(GstreamerZipAddress)" Importance="normal" Condition="'$(GstreamerDownload)' == 'true'" />
     <DownloadFile SourceUrl="$(GstreamerZipAddress)" DestinationFolder="$(GstreamerZipFolder)" DestinationFileName="gstreamer_$(Platform).zip" Condition="'$(GstreamerDownload)' == 'true'" />
     <Unzip SourceFiles="$(GstreamerZipFolder)gstreamer_$(Platform).zip" DestinationFolder="$(GstreamerTargetFolder)" Condition="'$(GstreamerDownload)' == 'true'" />
+  </Target>
+
+  <Target Name="ffmpegBeforeBuild" BeforeTargets="BeforeBuild" Condition="'$(IsWindowsConfig)' == 'true'">
+    <PropertyGroup>
+      <FFmpegVersion>8.1.3</FFmpegVersion>
+      <FFmpegArch Condition="'$(Platform)' == 'x64'">x64</FFmpegArch>
+      <FFmpegArch Condition="'$(Platform)' == 'x86'">x86</FFmpegArch>
+      <FFmpegZipAddress>https://github.com/System233/ffmpeg-msvc-prebuilt/releases/download/ffmpeg-$(FFmpegVersion)/ffmpeg-$(FFmpegVersion)_$(FFmpegArch)-windows-shared-gpl.zip</FFmpegZipAddress>
+      <FFmpegTargetFolder Condition="'$(Platform)' == 'x64'">$(TargetDir)libs\unmanaged\ffmpeg64\</FFmpegTargetFolder>
+      <FFmpegTargetFolder Condition="'$(Platform)' == 'x86'">$(TargetDir)libs\unmanaged\ffmpeg86\</FFmpegTargetFolder>
+      <FFmpegZipFolder>$(MSBuildProjectDirectory)\$(IntermediateOutputPath)ffmpeg-$(FFmpegVersion)_$(FFmpegArch)\</FFmpegZipFolder>
+      <FFmpegDownload Condition="!Exists('$(FFmpegTargetFolder)avcodec-62.dll')">true</FFmpegDownload>
+    </PropertyGroup>
+    <Message Text="FFmpeg is missing - download started: $(FFmpegZipAddress)" Importance="normal" Condition="'$(FFmpegDownload)' == 'true'" />
+    <DownloadFile SourceUrl="$(FFmpegZipAddress)" DestinationFolder="$(FFmpegZipFolder)" DestinationFileName="ffmpeg.zip" Condition="'$(FFmpegDownload)' == 'true'" />
+    <Unzip SourceFiles="$(FFmpegZipFolder)ffmpeg.zip" DestinationFolder="$(FFmpegZipFolder)content" Condition="'$(FFmpegDownload)' == 'true'" />
+    <ItemGroup Condition="'$(FFmpegDownload)' == 'true'">
+      <FFmpegLibraries Include="$(FFmpegZipFolder)content\bin\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FFmpegLibraries)" DestinationFolder="$(FFmpegTargetFolder)" Condition="'$(FFmpegDownload)' == 'true'" />
   </Target>
 
   <Target Name="copyWebAppAfterBuild" AfterTargets="Build">

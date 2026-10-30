@@ -2,7 +2,6 @@ ARCH?=$(shell uname -m | sed -e s/i.86/x86/ -e s/x86_64/x64/)
 windowsLibs = Output/gstreamer-sharp.dll Output/glib-sharp.dll
 all:
 	$(MAKE) -C PitchTracker
-	$(MAKE) -C Vocaluxe/Lib/Video/Acinerella
 	rm -f $(windowsLibs)
 	dotnet build Vocaluxe/Vocaluxe.csproj -p:Platform=$(ARCH) -c ReleaseLinux
 	for project in PartyModes/*/*.csproj; do dotnet build $$project -c ReleaseLinux || exit 1; done
@@ -10,7 +9,6 @@ all:
 clean:
 	dotnet clean Vocaluxe/Vocaluxe.csproj -p:Platform=$(ARCH) -c ReleaseLinux
 	$(MAKE) -C PitchTracker clean
-	$(MAKE) -C Vocaluxe/Lib/Video/Acinerella clean
 	git checkout $(windowsLibs)
 
 INSTALLPATH?=/usr/share/vocaluxe

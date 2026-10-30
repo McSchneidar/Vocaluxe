@@ -6,8 +6,8 @@ Runing Vocaluxe on Linux is not offically supported yet -but you can try it your
 
 * Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 * Get sure gcc, g++, make and pkg-config are installed
-* Install the development packages of FFmpeg (libavformat, libavcodec, libavutil, libswscale, libswresample)
 * Install the runtime dependencies:
+  - FFmpeg 8 (libavformat 62, libavcodec 62, libavutil 60, libswscale 9, libswresample 6)
   - portaudio
   - hidapi (libhidapi-libusb)
   - openal (optional, only needed for the OpenAL playback)

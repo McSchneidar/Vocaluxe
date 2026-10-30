@@ -17,13 +17,12 @@
 
 using System;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Threading;
 using Vocaluxe.Base;
 using VocaluxeLib.Draw;
 using VocaluxeLib.Log;
 
-namespace Vocaluxe.Lib.Video.Acinerella
+namespace Vocaluxe.Lib.Video.FFmpeg
 {
     //This class describes a thread decoding a video
     //All public methods are meant to be called from "reader" thread only
@@ -35,8 +34,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
         private Thread _Thread;
         private readonly Object _BufferMutex = new Object();
 
-        private IntPtr _Instance = IntPtr.Zero; // acinerella instance
-        private IntPtr _Videodecoder = IntPtr.Zero; // acinerella video decoder instance
+        private CFFmpegDecoder _Decoder;
 
         private readonly CFramebuffer _Framebuffer;
         private float _LastDecodedTime; // time of last decoded frame
@@ -77,13 +75,12 @@ namespace Vocaluxe.Lib.Video.Acinerella
             _FileName = fileName;
             try
             {
-                _Instance = CAcinerella.AcInit();
-                CAcinerella.AcOpen2(_Instance, fileName);
+                _Decoder = new CFFmpegDecoder(EFFmpegStreamType.Video);
+                var opened = _Decoder.Open(fileName);
 
-                var instance = (SACInstance)Marshal.PtrToStructure(_Instance, typeof(SACInstance));
-                Length = instance.Info.Duration / 1000f;
+                Length = _Decoder.Length;
                 LoopLength = Length;
-                var ok = instance.Opened && Length > 0.001f;
+                var ok = opened && Length > 0.001f;
                 _DropSeekEnabled = true;
                 if (ok)
                 {
@@ -95,13 +92,13 @@ namespace Vocaluxe.Lib.Video.Acinerella
             catch (Exception) { }
 
             CLog.Error("Error opening video file: " + _FileName);
-            _Instance = IntPtr.Zero;
+            _Decoder = null;
             return false;
         }
 
         public bool Start()
         {
-            if (_Instance == IntPtr.Zero)
+            if (_Decoder == null)
             {
                 CLog.Error("Tried to start a video file that is not open: " + _FileName);
                 return false;
@@ -314,31 +311,12 @@ namespace Vocaluxe.Lib.Video.Acinerella
 
         private bool _OpenVideoStream()
         {
-            int videoStreamIndex;
-            SACDecoder decoder;
-            try
-            {
-                _Videodecoder = CAcinerella.AcCreateVideoDecoder(_Instance);
-                decoder = (SACDecoder)Marshal.PtrToStructure(_Videodecoder, typeof(SACDecoder));
-                videoStreamIndex = decoder.StreamIndex;
-            }
-            catch (Exception)
-            {
-                CLog.Error("Error opening video file (can't find decoder): " + _FileName);
-                return false;
-            }
+            _Width = _Decoder.Width;
+            _Height = _Decoder.Height;
 
-            if (videoStreamIndex < 0)
+            if (_Decoder.FramesPerSecond > 0)
             {
-                return false;
-            }
-
-            _Width = decoder.StreamInfo.VideoInfo.FrameWidth;
-            _Height = decoder.StreamInfo.VideoInfo.FrameHeight;
-
-            if (decoder.StreamInfo.VideoInfo.FramesPerSecond > 0)
-            {
-                _FrameDuration = 1f / (float)decoder.StreamInfo.VideoInfo.FramesPerSecond;
+                _FrameDuration = 1f / (float)_Decoder.FramesPerSecond;
             }
 
             _Framebuffer.Init(_Width * _Height * 4);
@@ -349,16 +327,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
         //Just call this if thread is not alive
         private void _Free()
         {
-            if (_Videodecoder != IntPtr.Zero)
-            {
-                CAcinerella.AcFreeDecoder(_Videodecoder);
-            }
-
-            if (_Instance != IntPtr.Zero)
-            {
-                CAcinerella.AcClose(_Instance);
-                CAcinerella.AcFree(_Instance);
-            }
+            _Decoder?.Dispose();
         }
 
         // Skip to a given time (in s)
@@ -372,7 +341,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
 
             try
             {
-                CAcinerella.AcSeek(_Videodecoder, -1, (Int64)(skipTime * 1000f));
+                _Decoder.Seek(true, (Int64)(skipTime * 1000f));
             }
             catch (Exception e)
             {
@@ -418,7 +387,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
             {
                 try
                 {
-                    hasFrameDecoded = CAcinerella.AcGetFrame(_Instance, _Videodecoder);
+                    hasFrameDecoded = _Decoder.GetFrame();
                 }
                 catch (Exception)
                 {
@@ -454,7 +423,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
             var hasFrameDecoded = false;
             try
             {
-                hasFrameDecoded = CAcinerella.AcSeek(_Videodecoder, 0, (long)videoTime * 1000L);
+                hasFrameDecoded = _Decoder.Seek(false, (long)videoTime * 1000L);
             }
             catch (Exception)
             {
@@ -478,7 +447,7 @@ namespace Vocaluxe.Lib.Video.Acinerella
             frameDropCount += frameDropCount / 16;
             try
             {
-                hasFrameDecoded = CAcinerella.AcSkipFrames(_Instance, _Videodecoder, frameDropCount);
+                hasFrameDecoded = _Decoder.SkipFrames(frameDropCount);
             }
             catch (Exception)
             {
@@ -493,22 +462,11 @@ namespace Vocaluxe.Lib.Video.Acinerella
         private bool _CopyDecodedFrameToBuffer()
         {
             bool result;
-            SACDecoder decoder;
 
-            try
+            if (_Decoder.Buffer != IntPtr.Zero)
             {
-                decoder = (SACDecoder)Marshal.PtrToStructure(_Videodecoder, typeof(SACDecoder));
-            }
-            catch (Exception e)
-            {
-                CLog.Error(e, "Couldn't copy the frame to the managed environment.");
-                return false;
-            }
-
-            if (decoder.Buffer != IntPtr.Zero)
-            {
-                _LastDecodedTime = (float)decoder.Timecode;
-                result = _Framebuffer.Put(decoder.Buffer, _LastDecodedTime);
+                _LastDecodedTime = (float)_Decoder.Timecode;
+                result = _Framebuffer.Put(_Decoder.Buffer, _LastDecodedTime);
             }
             else
             {
