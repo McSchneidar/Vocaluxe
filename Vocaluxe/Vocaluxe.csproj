@@ -68,8 +68,8 @@
 
   <Target Name="gstreamerBeforeBuild" BeforeTargets="BeforeBuild" Condition="'$(IsWindowsConfig)' == 'true'">
     <PropertyGroup>
-      <GstreamerZipAddress Condition="'$(Platform)' == 'x64'">https://github.com/lukeIam/VocaluxeDependencies/raw/master/zips/dependencies/gstreamer_x64.zip</GstreamerZipAddress>
-      <GstreamerZipAddress Condition="'$(Platform)' == 'x86'">https://github.com/lukeIam/VocaluxeDependencies/raw/master/zips/dependencies/gstreamer_x86.zip</GstreamerZipAddress>
+      <GstreamerZipAddress Condition="'$(Platform)' == 'x64'">https://github.com/Vocaluxe/VocaluxeDependencies/raw/master/zips/dependencies/gstreamer_x64.zip</GstreamerZipAddress>
+      <GstreamerZipAddress Condition="'$(Platform)' == 'x86'">https://github.com/Vocaluxe/VocaluxeDependencies/raw/master/zips/dependencies/gstreamer_x86.zip</GstreamerZipAddress>
       <GstreamerTargetFolder Condition="'$(Platform)' == 'x64'">$(TargetDir)libs\unmanaged\gstreamer64\</GstreamerTargetFolder>
       <GstreamerTargetFolder Condition="'$(Platform)' == 'x86'">$(TargetDir)libs\unmanaged\gstreamer86\</GstreamerTargetFolder>
       <GstreamerGlobalPath Condition="'$(Platform)' == 'x64'">$(GSTREAMER_1_0_ROOT_X86_64)</GstreamerGlobalPath>
