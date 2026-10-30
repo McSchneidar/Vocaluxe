@@ -1,7 +1,6 @@
 <Project>
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <TargetFramework Condition="$(Configuration.EndsWith('Win'))">net10.0-windows</TargetFramework>
     <Configurations>DebugWin;ReleaseWin;InstallerWin;DebugLinux;ReleaseLinux</Configurations>
     <Platforms>AnyCPU;x86;x64</Platforms>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
@@ -38,6 +37,7 @@
 
   <PropertyGroup Condition="$(Configuration.EndsWith('Win'))">
     <DefineConstants>$(DefineConstants);WIN</DefineConstants>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition="$(Configuration.EndsWith('Linux'))">
     <DefineConstants>$(DefineConstants);LINUX</DefineConstants>

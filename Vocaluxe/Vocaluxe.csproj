@@ -44,8 +44,6 @@
     <PackageReference Include="vocaluxe.dependencies.csharpsqlite" Version="1.0.1" />
     <PackageReference Include="vocaluxe.dependencies.gstreamersharp" Version="1.0.1" />
     <PackageReference Include="vocaluxe.dependencies.portaudiosharp" Version="1.0.3" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(IsWindowsConfig)' == 'true'">
     <PackageReference Include="NAudio.Wasapi" Version="3.3.0" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.14" />
     <PackageReference Include="vocaluxe.dependencies.aforgevideo" Version="1.0.1" />
@@ -62,10 +60,10 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <PreBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">powershell -ExecutionPolicy Bypass -Command "&amp; '$(MSBuildProjectDirectory)\..\.build\winPreBuild.ps1' -ProjectDir '$(ProjectDir)' -Arch '$(Platform)'"</PreBuildEvent>
-    <PreBuildEvent Condition=" '$(OS)' != 'Windows_NT' ">$(MSBuildProjectDirectory)/../.build/linuxPreBuildEvent.sh $(ProjectDir) $(Platform)</PreBuildEvent>
-    <PostBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">powershell -ExecutionPolicy Bypass -Command "&amp; '$(MSBuildProjectDirectory)\..\.build\winPostBuild.ps1' -ProjectDir '$(ProjectDir)'"</PostBuildEvent>
-    <PostBuildEvent Condition=" '$(OS)' != 'Windows_NT' ">$(MSBuildProjectDirectory)/../.build/linuxPostBuildEvent.sh $(ProjectDir)</PostBuildEvent>
+    <PreBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">powershell -ExecutionPolicy Bypass -Command "&amp; '$(MSBuildProjectDirectory)\..\.build\winPreBuild.ps1' -ProjectDir '$(MSBuildProjectDirectory)\' -Arch '$(Platform)'"</PreBuildEvent>
+    <PreBuildEvent Condition=" '$(OS)' != 'Windows_NT' ">$(MSBuildProjectDirectory)/../.build/linuxPreBuildEvent.sh $(MSBuildProjectDirectory)/ $(Platform)</PreBuildEvent>
+    <PostBuildEvent Condition=" '$(OS)' == 'Windows_NT' ">powershell -ExecutionPolicy Bypass -Command "&amp; '$(MSBuildProjectDirectory)\..\.build\winPostBuild.ps1' -ProjectDir '$(MSBuildProjectDirectory)\'"</PostBuildEvent>
+    <PostBuildEvent Condition=" '$(OS)' != 'Windows_NT' ">$(MSBuildProjectDirectory)/../.build/linuxPostBuildEvent.sh $(MSBuildProjectDirectory)/</PostBuildEvent>
   </PropertyGroup>
 
   <Target Name="gstreamerBeforeBuild" BeforeTargets="BeforeBuild" Condition="'$(IsWindowsConfig)' == 'true'">
