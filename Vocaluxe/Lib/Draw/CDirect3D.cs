@@ -21,6 +21,8 @@ using System.Drawing;
 using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
 using SDL;
 using SharpGen.Runtime;
 using SkiaSharp;
@@ -123,6 +125,7 @@ float4 PS(SPixel input) : SV_TARGET
         private readonly ID3D11Device _Device;
         private readonly ID3D11DeviceContext _Context;
         private IDXGISwapChain1 _SwapChain;
+        private WaitHandle _FrameLatencyWaitHandle;
         private readonly bool _TearingSupported;
         private uint _SampleCount = 1;
         private uint _SampleQuality;
@@ -325,6 +328,12 @@ float4 PS(SPixel input) : SV_TARGET
                 Flags = _SwapChainFlags
             };
             _SwapChain = _Factory.CreateSwapChainForHwnd(_Device, hwnd, description);
+            using (var swapChain2 = _SwapChain.QueryInterface<IDXGISwapChain2>())
+            {
+                swapChain2.MaximumFrameLatency = 1;
+                _FrameLatencyWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset) { SafeWaitHandle = new SafeWaitHandle(swapChain2.FrameLatencyWaitableObject, true) };
+            }
+
             _Factory.MakeWindowAssociation(hwnd, WindowAssociationFlags.IgnoreAltEnter);
             _CreateSizeDependentResources(clientSize.Width, clientSize.Height);
 
@@ -369,7 +378,7 @@ float4 PS(SPixel input) : SV_TARGET
 
         private SwapChainFlags _SwapChainFlags
         {
-            get { return _TearingSupported ? SwapChainFlags.AllowTearing : SwapChainFlags.None; }
+            get { return SwapChainFlags.FrameLatencyWaitableObject | (_TearingSupported ? SwapChainFlags.AllowTearing : SwapChainFlags.None); }
         }
 
         private static byte[] _CompileShader(string entryPoint, string profile)
@@ -438,6 +447,7 @@ float4 PS(SPixel input) : SV_TARGET
 
         protected override void _OnBeforeDraw()
         {
+            _FrameLatencyWaitHandle?.WaitOne(1000);
             _Context.OMSetRenderTargets(_RenderTargetView, _DepthStencilView);
             _Context.RSSetViewport(new Viewport(_X, _Y, _W, _H, 0f, 1f));
             _Context.IASetPrimitiveTopology(PrimitiveTopology.TriangleList);
@@ -529,6 +539,7 @@ float4 PS(SPixel input) : SV_TARGET
             _InputLayout?.Dispose();
             _PixelShader?.Dispose();
             _VertexShader?.Dispose();
+            _FrameLatencyWaitHandle?.Dispose();
             _SwapChain?.Dispose();
             _Context?.Dispose();
             _Device?.Dispose();
