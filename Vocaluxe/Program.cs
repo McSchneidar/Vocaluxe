@@ -21,7 +21,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Runtime.ExceptionServices;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 using SQLitePCL;
@@ -46,7 +46,7 @@ namespace Vocaluxe
     {
         private static CSplashScreen _SplashScreen;
 
-        [STAThread, HandleProcessCorruptedStateExceptions]
+        [STAThread]
         // ReSharper disable InconsistentNaming
         private static void Main(string[] args)
             // ReSharper restore InconsistentNaming
@@ -55,6 +55,7 @@ namespace Vocaluxe
             AppDomain.CurrentDomain.UnhandledException += UnhandledExceptionHandler;
 #endif
             AppDomain.CurrentDomain.AssemblyResolve += _AssemblyResolver;
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             COSFunctions.AddEnvironmentPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs\\unmanaged\\"));
 #if ARCH_X86
             COSFunctions.AddEnvironmentPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "libs\\unmanaged\\x86\\"));
@@ -477,7 +478,6 @@ namespace Vocaluxe
         }
 
 #if !DEBUG
-        [HandleProcessCorruptedStateExceptions]
         private static void UnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs args)
         {
             var e = (Exception)args.ExceptionObject;
