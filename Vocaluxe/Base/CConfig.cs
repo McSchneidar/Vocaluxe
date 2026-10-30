@@ -218,6 +218,8 @@ namespace Vocaluxe.Base
             public EOffOn VideosInSongs;
             [DefaultValue(EOffOn.TR_CONFIG_OFF)]
             public EOffOn VideosToBackground;
+            [DefaultValue(EOffOn.TR_CONFIG_ON)]
+            public EOffOn HardwareDecoding;
             [DefaultValue(EWebcamLib.AForgeNet)]
             public EWebcamLib WebcamLib;
             public SWebcamConfig? WebcamConfig;
@@ -614,6 +616,8 @@ namespace Vocaluxe.Base
                     return "Show Videos while singing: " + CHelper.ListStrings(Enum.GetNames(typeof(EOffOn)));
                 case "VideosToBackground":
                     return "Show backgroundmusic videos as background: " + CHelper.ListStrings(Enum.GetNames(typeof(EOffOn)));
+                case "HardwareDecoding":
+                    return "Decode videos on the graphics card if supported, falls back to software decoding: " + CHelper.ListStrings(Enum.GetNames(typeof(EOffOn)));
                 case "WebcamLib":
                     return "WebcamLib: " + CHelper.ListStrings(Enum.GetNames(typeof(EWebcamLib)));
                 case "MicDelay":

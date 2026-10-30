@@ -19,6 +19,7 @@ using System;
 using System.IO;
 using System.Threading;
 using Vocaluxe.Base;
+using VocaluxeLib;
 using VocaluxeLib.Draw;
 using VocaluxeLib.Log;
 
@@ -75,7 +76,7 @@ namespace Vocaluxe.Lib.Video.FFmpeg
             _FileName = fileName;
             try
             {
-                _Decoder = new CFFmpegDecoder(EFFmpegStreamType.Video);
+                _Decoder = new CFFmpegDecoder(EFFmpegStreamType.Video) { HardwareDecoding = CConfig.Config.Video.HardwareDecoding == EOffOn.TR_CONFIG_ON };
                 var opened = _Decoder.Open(fileName);
 
                 Length = _Decoder.Length;

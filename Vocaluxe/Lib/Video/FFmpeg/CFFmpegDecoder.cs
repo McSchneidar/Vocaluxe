@@ -16,6 +16,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -51,6 +52,16 @@ namespace Vocaluxe.Lib.Video.FFmpeg
         private int _BufferCapacity;
         private byte_ptr4 _ImageData;
         private int4 _ImageLineSize;
+        private AVFrame* _TransferFrame;
+        private AVPixelFormat _HardwarePixelFormat = AVPixelFormat.AV_PIX_FMT_NONE;
+        private AVCodecContext_get_format _GetFormatCallback;
+
+        private static readonly object _HardwareDevicesLock = new object();
+        private static readonly Dictionary<AVHWDeviceType, IntPtr> _HardwareDevices = new Dictionary<AVHWDeviceType, IntPtr>();
+        private static readonly HashSet<AVHWDeviceType> _FailedHardwareDevices = new HashSet<AVHWDeviceType>();
+
+        public bool HardwareDecoding { get; set; }
+        public string HardwareDeviceName { get; private set; }
 
         public float Length { get; private set; }
         public int Width { get; private set; }
@@ -150,8 +161,17 @@ namespace Vocaluxe.Lib.Video.FFmpeg
             }
 
             _CodecContext = ffmpeg.avcodec_alloc_context3(codec);
-            if (_CodecContext == null || ffmpeg.avcodec_parameters_to_context(_CodecContext, stream->codecpar) < 0 ||
-                ffmpeg.avcodec_open2(_CodecContext, codec, null) < 0)
+            if (_CodecContext == null || ffmpeg.avcodec_parameters_to_context(_CodecContext, stream->codecpar) < 0)
+            {
+                return false;
+            }
+
+            if (_Type == EFFmpegStreamType.Video && HardwareDecoding)
+            {
+                _InitHardwareDecoding(codec);
+            }
+
+            if (ffmpeg.avcodec_open2(_CodecContext, codec, null) < 0)
             {
                 return false;
             }
@@ -198,6 +218,116 @@ namespace Vocaluxe.Lib.Video.FFmpeg
             ffmpeg.av_channel_layout_uninit(&layout);
             _SwrContext = swrContext;
             return result >= 0 && ffmpeg.swr_init(_SwrContext) >= 0;
+        }
+
+        private static AVHWDeviceType[] _GetHardwareDeviceTypes()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return new[] { AVHWDeviceType.AV_HWDEVICE_TYPE_D3D11VA, AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2 };
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                return new[] { AVHWDeviceType.AV_HWDEVICE_TYPE_VIDEOTOOLBOX };
+            }
+
+            return new[] { AVHWDeviceType.AV_HWDEVICE_TYPE_VAAPI, AVHWDeviceType.AV_HWDEVICE_TYPE_VDPAU };
+        }
+
+        private static AVPixelFormat _GetHardwarePixelFormat(AVCodec* codec, AVHWDeviceType type)
+        {
+            const int hwConfigMethodHwDeviceContext = 0x01;
+            for (var i = 0;; i++)
+            {
+                var config = ffmpeg.avcodec_get_hw_config(codec, i);
+                if (config == null)
+                {
+                    return AVPixelFormat.AV_PIX_FMT_NONE;
+                }
+
+                if ((config->methods & hwConfigMethodHwDeviceContext) != 0 && config->device_type == type)
+                {
+                    return config->pix_fmt;
+                }
+            }
+        }
+
+        private static AVBufferRef* _GetHardwareDevice(AVHWDeviceType type)
+        {
+            lock (_HardwareDevicesLock)
+            {
+                if (_FailedHardwareDevices.Contains(type))
+                {
+                    return null;
+                }
+
+                IntPtr device;
+                if (!_HardwareDevices.TryGetValue(type, out device))
+                {
+                    AVBufferRef* deviceContext = null;
+                    if (ffmpeg.av_hwdevice_ctx_create(&deviceContext, type, null, null, 0) < 0)
+                    {
+                        _FailedHardwareDevices.Add(type);
+                        return null;
+                    }
+
+                    device = (IntPtr)deviceContext;
+                    _HardwareDevices.Add(type, device);
+                }
+
+                return ffmpeg.av_buffer_ref((AVBufferRef*)device);
+            }
+        }
+
+        private void _InitHardwareDecoding(AVCodec* codec)
+        {
+            foreach (var type in _GetHardwareDeviceTypes())
+            {
+                var pixelFormat = _GetHardwarePixelFormat(codec, type);
+                if (pixelFormat == AVPixelFormat.AV_PIX_FMT_NONE)
+                {
+                    continue;
+                }
+
+                var device = _GetHardwareDevice(type);
+                if (device == null)
+                {
+                    continue;
+                }
+
+                _HardwarePixelFormat = pixelFormat;
+                _CodecContext->hw_device_ctx = device;
+                _GetFormatCallback = _GetFormat;
+                _CodecContext->get_format = _GetFormatCallback;
+                _TransferFrame = ffmpeg.av_frame_alloc();
+                HardwareDeviceName = ffmpeg.av_hwdevice_get_type_name(type);
+                return;
+            }
+        }
+
+        private AVPixelFormat _GetFormat(AVCodecContext* context, AVPixelFormat* formats)
+        {
+            var fallback = AVPixelFormat.AV_PIX_FMT_NONE;
+            for (var format = formats; *format != AVPixelFormat.AV_PIX_FMT_NONE; format++)
+            {
+                if (*format == _HardwarePixelFormat)
+                {
+                    return *format;
+                }
+
+                if (fallback == AVPixelFormat.AV_PIX_FMT_NONE)
+                {
+                    var descriptor = ffmpeg.av_pix_fmt_desc_get(*format);
+                    if (descriptor != null && (descriptor->flags & ffmpeg.AV_PIX_FMT_FLAG_HWACCEL) == 0)
+                    {
+                        fallback = *format;
+                    }
+                }
+            }
+
+            HardwareDeviceName = null;
+            return fallback;
         }
 
         private void _EnsureBuffer(int size)
@@ -262,14 +392,26 @@ namespace Vocaluxe.Lib.Video.FFmpeg
 
         private bool _ConvertVideoFrame()
         {
-            _SwsContext = ffmpeg.sws_getCachedContext(_SwsContext, _Frame->width, _Frame->height, (AVPixelFormat)_Frame->format, Width, Height, _OutputPixelFormat,
+            var frame = _Frame;
+            if (frame->hw_frames_ctx != null)
+            {
+                ffmpeg.av_frame_unref(_TransferFrame);
+                if (ffmpeg.av_hwframe_transfer_data(_TransferFrame, frame, 0) < 0)
+                {
+                    return false;
+                }
+
+                frame = _TransferFrame;
+            }
+
+            _SwsContext = ffmpeg.sws_getCachedContext(_SwsContext, frame->width, frame->height, (AVPixelFormat)frame->format, Width, Height, _OutputPixelFormat,
                 (int)SwsFlags.SWS_BICUBIC, null, null, null);
             if (_SwsContext == null)
             {
                 return false;
             }
 
-            return ffmpeg.sws_scale(_SwsContext, _Frame->data.ToArray(), _Frame->linesize.ToArray(), 0, _Frame->height, _ImageData.ToArray(), _ImageLineSize.ToArray()) > 0;
+            return ffmpeg.sws_scale(_SwsContext, frame->data.ToArray(), frame->linesize.ToArray(), 0, frame->height, _ImageData.ToArray(), _ImageLineSize.ToArray()) > 0;
         }
 
         private bool _ConvertAudioFrame()
@@ -376,6 +518,13 @@ namespace Vocaluxe.Lib.Video.FFmpeg
                 var frame = _Frame;
                 ffmpeg.av_frame_free(&frame);
                 _Frame = null;
+            }
+
+            if (_TransferFrame != null)
+            {
+                var transferFrame = _TransferFrame;
+                ffmpeg.av_frame_free(&transferFrame);
+                _TransferFrame = null;
             }
 
             if (_Packet != null)
