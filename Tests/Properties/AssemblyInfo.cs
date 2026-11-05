@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Vocaluxe Team")]
 [assembly: AssemblyProduct("VocluceTests")]
-[assembly: AssemblyCopyright("Copyright © 2018")]
+[assembly: AssemblyCopyright("Copyright © 2027")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
